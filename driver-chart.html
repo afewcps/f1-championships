@@ -28,7 +28,9 @@
       .then(data => {
         console.log("✅ JSON geladen:", data);
 
-        const maxY = Math.max(...data.series.flatMap(s => s.data));
+        const allPoints = data.series.flatMap(s => s.data);
+        const minY = Math.min(...allPoints);
+        const maxY = Math.max(...allPoints);
 
         const ctx = document.getElementById('chart').getContext('2d');
         const chart = new Chart(ctx, {
@@ -58,8 +60,8 @@
                 }
               },
               tooltip: {
-                mode: 'index',
-                intersect: false,
+                mode: 'nearest',
+                intersect: true,
                 backgroundColor: '#222',
                 titleColor: '#fff',
                 bodyColor: '#ccc'
@@ -78,7 +80,8 @@
               },
               y: {
                 beginAtZero: false,
-                suggestedMax: Math.ceil(maxY * 1.1),
+                suggestedMin: minY,
+                suggestedMax: maxY + 5,
                 ticks: {
                   color: '#aaa'
                 },
@@ -96,3 +99,4 @@
   </script>
 </body>
 </html>
+
