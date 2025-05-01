@@ -7,7 +7,7 @@
   <style>
     body {
       margin: 0;
-      background-color: #000; /* Schwarz */
+      background-color: transparent;
     }
     canvas {
       display: block;
@@ -19,9 +19,17 @@
 <body>
   <canvas id="chart"></canvas>
   <script>
+    console.log("🚀 Lade driver_chart.json...");
     fetch("driver_chart.json")
-      .then(response => response.json())
+      .then(response => {
+        if (!response.ok) throw new Error("Datei nicht gefunden!");
+        return response.json();
+      })
       .then(data => {
+        console.log("✅ JSON geladen:", data);
+
+        const maxY = Math.max(...data.series.flatMap(s => s.data));
+
         const ctx = document.getElementById('chart').getContext('2d');
         const chart = new Chart(ctx, {
           type: 'line',
@@ -32,20 +40,58 @@
               data: driver.data,
               borderColor: driver.color,
               fill: false,
-              tension: 0.2
+              tension: 0.4,
+              pointRadius: 2,
+              borderWidth: 2
             }))
           },
           options: {
             responsive: true,
             plugins: {
-              legend: { labels: { color: '#fff' } }
+              legend: {
+                labels: {
+                  color: '#ffffff',
+                  font: {
+                    size: 14,
+                    family: 'Arial'
+                  }
+                }
+              },
+              tooltip: {
+                mode: 'index',
+                intersect: false,
+                backgroundColor: '#222',
+                titleColor: '#fff',
+                bodyColor: '#ccc'
+              }
             },
             scales: {
-              x: { ticks: { color: '#ccc' } },
-              y: { ticks: { color: '#ccc' } }
+              x: {
+                ticks: {
+                  color: '#aaa',
+                  maxRotation: 45,
+                  minRotation: 0
+                },
+                grid: {
+                  color: '#333'
+                }
+              },
+              y: {
+                beginAtZero: false,
+                suggestedMax: Math.ceil(maxY * 1.1),
+                ticks: {
+                  color: '#aaa'
+                },
+                grid: {
+                  color: '#333'
+                }
+              }
             }
           }
         });
+      })
+      .catch(error => {
+        console.error("❌ Fehler beim Laden der Chart-Daten:", error);
       });
   </script>
 </body>
