@@ -1,2 +1,7 @@
 streamlit
 notion-client
+fastf1
+matplotlib
+pandas
+numpy
+requests
