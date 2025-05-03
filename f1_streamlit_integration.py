@@ -1,8 +1,4 @@
 import streamlit as st
-import os
-import sys
-import importlib.util
-from notion_client import Client
 
 # Streamlit UI Konfiguration
 st.set_page_config(
@@ -10,6 +6,13 @@ st.set_page_config(
     page_icon="🏎️",
     layout="wide"
 )
+
+
+import os
+import sys
+import importlib.util
+from notion_client import Client
+
 
 st.title("🏎️ F1 Journal API Integration")
 st.write("Nutze dieses Tool, um dein F1 Journal in Notion automatisch mit API-Daten zu aktualisieren.")
