@@ -354,7 +354,7 @@
         30,
         30
       ],
-      "color": "#00A0DE"
+      "color": "#005AFF"
     },
     {
       "title": "Carlos Sainz",
@@ -384,7 +384,7 @@
         7,
         7
       ],
-      "color": "#00A0DE"
+      "color": "#005AFF"
     },
     {
       "title": "Pierre Gasly",
@@ -414,7 +414,7 @@
         7,
         7
       ],
-      "color": "#F363B9"
+      "color": "#0090FF"
     },
     {
       "title": "Jack Doohan",
@@ -444,7 +444,7 @@
         0,
         0
       ],
-      "color": "#F363B9"
+      "color": "#0090FF"
     },
     {
       "title": "Liam Lawson",
@@ -474,7 +474,7 @@
         0,
         0
       ],
-      "color": "#FFFFFF"
+      "color": "#2B4562"
     },
     {
       "title": "Isack Hadjar",
@@ -504,7 +504,7 @@
         5,
         5
       ],
-      "color": "#FFFFFF"
+      "color": "#2B4562"
     },
     {
       "title": "Esteban Ocon",
@@ -534,7 +534,7 @@
         14,
         14
       ],
-      "color": "#E6002B"
+      "color": "#FFFFFF"
     },
     {
       "title": "Oliver Bearman",
@@ -564,7 +564,7 @@
         6,
         6
       ],
-      "color": "#E6002B"
+      "color": "#FFFFFF"
     },
     {
       "title": "Nico Hülkenberg",
@@ -594,7 +594,7 @@
         6,
         6
       ],
-      "color": "#00e701"
+      "color": "#900000"
     },
     {
       "title": "Gabriel Bortoletto",
@@ -624,8 +624,37 @@
         0,
         0
       ],
-      "color": "#00e701"
+      "color": "#900000"
+    },
+    {
+      "title": "Gabriel Bortoleto",
+      "data": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "color": "#000000"
     }
-    
   ]
 }
