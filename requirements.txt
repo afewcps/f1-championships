@@ -6,9 +6,3 @@ pandas
 numpy
 requests
 tqdm
-
-
-requests
-json
-time
-random
