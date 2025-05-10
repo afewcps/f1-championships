@@ -21,8 +21,8 @@ notion_token = st.sidebar.text_input("Notion Token", value="ntn_279772840779ttp5
 notion_f1_results_block_id = st.sidebar.text_input("Notion F1 Results Block ID", value="1e26839379ed80edbd00df2aaf120777")
 
 # Cache configuration for FastF1
-cache_location = st.sidebar.text_input("FastF1 Cache Location", value="./fastf1_cache/")
-fastf1.Cache.enable_cache(cache_location)
+#cache_location = st.sidebar.text_input("FastF1 Cache Location", value="./fastf1_cache/")
+#fastf1.Cache.enable_cache(cache_location)
 
 # Session order for standard and sprint weekends
 NORMAL_WEEKEND_ORDER = {
