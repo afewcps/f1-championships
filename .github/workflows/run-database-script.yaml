@@ -1,0 +1,36 @@
+name: Run database script daily
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # Jeden Tag um 06:00 UTC
+  workflow_dispatch:     # Manuelles Starten erlaubt (optional)
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies (optional)
+        run: |
+          pip install -r requirements.txt || true
+
+      - name: Run database-script.py
+        run: python database-script.py
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git diff --cached --quiet || git commit -m "Automated update: $(date -u +"%Y-%m-%d %H:%M:%S")"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
