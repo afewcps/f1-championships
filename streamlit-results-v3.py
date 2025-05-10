@@ -16,7 +16,7 @@ st.set_page_config(
 # Add header
 st.title("🏎️ F1 Results to Notion")
 st.markdown("Upload F1 session results directly to your Notion database.")
-st.info("Important: This app will only update existing databases in Notion with the pattern 'Name GP Year' (e.g., 'Miami GP 2025'). You must first create the database in Notion before using this app.")
+st.info("Important: This app will only update existing databases in Notion with the pattern 'Name Year' (e.g., 'Miami Grand Prix 2025'). You must first create the database in Notion before using this app.")
 
 # Notion API Configuration
 notion_token = st.sidebar.text_input("Notion Token", value="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", type="password")
@@ -45,12 +45,12 @@ SPRINT_WEEKEND_ORDER = {
 }
 
 def find_gp_database(gp_name, year, headers):
-    """Find a GP database by name using the pattern 'Name GP Year'."""
+    """Find a GP database by name using the pattern 'Name Year'."""
     # Search for existing database with this GP name
     search_url = "https://api.notion.com/v1/search"
     
-    # Format the search query correctly to find "Name GP Year"
-    search_query = f"{gp_name} GP {year}"
+    # Format the search query correctly to find "Name Year"
+    search_query = f"{gp_name} {year}"
     
     search_payload = {
         "query": search_query,
@@ -67,7 +67,7 @@ def find_gp_database(gp_name, year, headers):
         for result in results:
             if result.get("object") == "database":
                 db_title = result.get("title", [{}])[0].get("text", {}).get("content", "")
-                expected_title = f"{gp_name} GP {year}"
+                expected_title = f"{gp_name} {year}"
                 
                 if expected_title in db_title:
                     st.success(f"Found existing database: {db_title}")
@@ -101,7 +101,7 @@ def get_results_for_session(year, gp_name, session_type):
         try:
             session = fastf1.get_session(year, gp_name, session_type)
         except ValueError as e:
-            st.warning(f"Session {display_name} does not exist for {gp_name} GP {year}: {str(e)}")
+            st.warning(f"Session {display_name} does not exist for {gp_name} {year}: {str(e)}")
             return None
             
         # Check if session has data before loading
@@ -231,13 +231,13 @@ def process_race_weekend(year, gp_name, is_sprint_weekend, headers, block_id):
     progress_bar = st.progress(0)
     status_text = st.empty()
     
-    status_text.text(f"Searching for database with pattern: {gp_name} GP {year}...")
+    status_text.text(f"Searching for database with pattern: {gp_name} {year}...")
     # Try to find an existing database for this GP with specific pattern
     gp_database_id = find_gp_database(gp_name, year, headers)
     
     # If not found, stop execution
     if not gp_database_id:
-        status_text.text(f"No existing database found for {gp_name} GP {year}.")
+        status_text.text(f"No existing database found for {gp_name} {year}.")
         st.error("Dupliziere zuerst die Results Datenbank")
         st.stop()  # This will halt the execution of the Streamlit app
     
@@ -246,9 +246,9 @@ def process_race_weekend(year, gp_name, is_sprint_weekend, headers, block_id):
     # Check if this is a future event
     current_date = datetime.now()
     if year > current_date.year:
-        st.warning(f"{gp_name} GP {year} is in the future - data may be limited or unavailable")
+        st.warning(f"{gp_name} {year} is in the future - data may be limited or unavailable")
     elif year == current_date.year:
-        st.info(f"Processing current year's event: {gp_name} GP {year}. Some sessions may not have occurred yet.")
+        st.info(f"Processing current year's event: {gp_name} {year}. Some sessions may not have occurred yet.")
     
     # Define session types based on weekend type
     if is_sprint_weekend:
