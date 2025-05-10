@@ -44,7 +44,7 @@ SPRINT_WEEKEND_ORDER = {
     "Race": 6
 }
 
-def find_gp_database(gp_name, year):
+def find_gp_database(gp_name, year, headers):
     """Find a GP database by name using the pattern 'Name GP Year'."""
     # Search for existing database with this GP name
     search_url = "https://api.notion.com/v1/search"
