@@ -48,8 +48,12 @@ def find_gp_database(gp_name, year, headers):
     """Find a GP database by name using the pattern 'Name GP Year'."""
     # Search for existing database with this GP name
     search_url = "https://api.notion.com/v1/search"
+    
+    # Format the search query correctly to find "Name GP Year"
+    search_query = f"{gp_name} GP {year}"
+    
     search_payload = {
-        "query": f"{gp_name} GP {year}",
+        "query": search_query,
         "filter": {
             "property": "object",
             "value": "database"
