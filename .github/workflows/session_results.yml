@@ -2,48 +2,91 @@ name: F1 Session Results
 
 on:
   schedule:
-    # Freitag alle 2 Stunden (Tag 5)
-    - cron: '0 */2 * * 5'
-    # Samstag alle 2 Stunden (Tag 6) 
-    - cron: '0 */2 * * 6'
-    # Sonntag alle 2 Stunden (Tag 0)
-    - cron: '0 */2 * * 0'
-  
-  # Manueller Trigger für Tests
+    # Freitag, Samstag, Sonntag stündlich (nur an Rennwochenenden)
+    - cron: '0 * * * 5'  # Freitag
+    - cron: '0 * * * 6'  # Samstag
+    - cron: '0 * * * 0'  # Sonntag
   workflow_dispatch:
 
 jobs:
-  update-results:
+  check-race-weekend:
     runs-on: ubuntu-latest
-    
+    outputs:
+      is-race-weekend: ${{ steps.check.outputs.is-race-weekend }}
+      race-name: ${{ steps.check.outputs.race-name }}
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      
+    - name: Check if today is a race weekend (Fr/Sa/So)
+      id: check
+      run: |
+        # F1 2025 Race Dates (Freitag bis Sonntag für Results)
+        race_dates=(
+          "2025-03-14,2025-03-15,2025-03-16,Australian Grand Prix"
+          "2025-03-21,2025-03-22,2025-03-23,Chinese Grand Prix"
+          "2025-04-04,2025-04-05,2025-04-06,Japanese Grand Prix"
+          "2025-04-11,2025-04-12,2025-04-13,Bahrain Grand Prix"
+          "2025-04-18,2025-04-19,2025-04-20,Saudi Arabian Grand Prix"
+          "2025-05-02,2025-05-03,2025-05-04,Miami Grand Prix"
+          "2025-05-16,2025-05-17,2025-05-18,Emilia Romagna Grand Prix"
+          "2025-05-23,2025-05-24,2025-05-25,Monaco Grand Prix"
+          "2025-05-30,2025-05-31,2025-06-01,Spanish Grand Prix"
+          "2025-06-13,2025-06-14,2025-06-15,Canadian Grand Prix"
+          "2025-06-27,2025-06-28,2025-06-29,Austrian Grand Prix"
+          "2025-07-04,2025-07-05,2025-07-06,British Grand Prix"
+          "2025-07-25,2025-07-26,2025-07-27,Belgian Grand Prix"
+          "2025-08-01,2025-08-02,2025-08-03,Hungarian Grand Prix"
+          "2025-08-29,2025-08-30,2025-08-31,Dutch Grand Prix"
+          "2025-09-05,2025-09-06,2025-09-07,Italian Grand Prix"
+          "2025-09-19,2025-09-20,2025-09-21,Azerbaijan Grand Prix"
+          "2025-10-03,2025-10-04,2025-10-05,Singapore Grand Prix"
+          "2025-10-17,2025-10-18,2025-10-19,United States Grand Prix"
+          "2025-10-24,2025-10-25,2025-10-26,Mexican Grand Prix"
+          "2025-11-07,2025-11-08,2025-11-09,Brazilian Grand Prix"
+          "2025-11-20,2025-11-21,2025-11-22,Las Vegas Grand Prix"
+          "2025-11-28,2025-11-29,2025-11-30,Qatar Grand Prix"
+          "2025-12-05,2025-12-06,2025-12-07,Abu Dhabi Grand Prix"
+        )
+        
+        today=$(date +%Y-%m-%d)
+        is_race_weekend=false
+        race_name=""
+        
+        for race in "${race_dates[@]}"; do
+          IFS=',' read -r friday saturday sunday name <<< "$race"
+          if [[ "$today" == "$friday" ]] || [[ "$today" == "$saturday" ]] || [[ "$today" == "$sunday" ]]; then
+            is_race_weekend=true
+            race_name="$name"
+            break
+          fi
+        done
+        
+        echo "is-race-weekend=$is_race_weekend" >> $GITHUB_OUTPUT
+        echo "race-name=$race_name" >> $GITHUB_OUTPUT
+        echo "🏁 Today: $today, Race Weekend: $is_race_weekend, Race: $race_name"
+
+  update-results:
+    needs: check-race-weekend
+    if: needs.check-race-weekend.outputs.is-race-weekend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.9'
-        
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
         pip install fastf1 pandas requests
-        
     - name: Create FastF1 cache directory
       run: mkdir -p fastf1_cache
-      
     - name: Update F1 Results
       env:
         NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
-      run: python f1_session_results_ACTIONS.py
-      
+      run: |
+        echo "🏎️ Updating Results for ${{ needs.check-race-weekend.outputs.race-name }}"
+        python f1_session_results_ACTIONS.py
     - name: Log completion
       if: success()
-      run: echo "✅ F1 Results update completed successfully at $(date)"
-      
+      run: echo "✅ Results updated at $(date)"
     - name: Log failure
       if: failure()
-      run: |
-        echo "❌ F1 Results update failed at $(date)"
-        exit 1
+      run: echo "❌ Results update failed at $(date)"
