@@ -68,7 +68,7 @@ def get_current_race_weekend():
         {"name": "Austrian Grand Prix", "date": "2025-06-29", "sprint": False},
         {"name": "British Grand Prix", "date": "2025-07-06", "sprint": False},
         {"name": "Belgian Grand Prix", "date": "2025-07-27", "sprint": True},
-        {"name": "Hungarian Grand Prix", "date": "2025-08-03", "sprint": False},
+        {"name": "Hungarian Grand Prix", "date": "2025-08-08", "sprint": False},
         {"name": "Dutch Grand Prix", "date": "2025-08-31", "sprint": False},
         {"name": "Italian Grand Prix", "date": "2025-09-07", "sprint": False},
         {"name": "Azerbaijan Grand Prix", "date": "2025-09-21", "sprint": False},
