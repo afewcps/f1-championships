@@ -1,0 +1,49 @@
+name: F1 Session Results
+
+on:
+  schedule:
+    # Freitag alle 2 Stunden (Tag 5)
+    - cron: '0 */2 * * 5'
+    # Samstag alle 2 Stunden (Tag 6) 
+    - cron: '0 */2 * * 6'
+    # Sonntag alle 2 Stunden (Tag 0)
+    - cron: '0 */2 * * 0'
+  
+  # Manueller Trigger für Tests
+  workflow_dispatch:
+
+jobs:
+  update-results:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install fastf1 pandas requests
+        
+    - name: Create FastF1 cache directory
+      run: mkdir -p fastf1_cache
+      
+    - name: Update F1 Results
+      env:
+        NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+      run: python f1_session_results_ACTIONS.py
+      
+    - name: Log completion
+      if: success()
+      run: echo "✅ F1 Results update completed successfully at $(date)"
+      
+    - name: Log failure
+      if: failure()
+      run: |
+        echo "❌ F1 Results update failed at $(date)"
+        exit 1
