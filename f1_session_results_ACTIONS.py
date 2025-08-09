@@ -46,55 +46,67 @@ headers = {
 def get_current_race_weekend():
     """
     Automatische Erkennung des aktuellen/letzten Rennwochenendes
+    Nutzt hardcodierten 2025 F1-Kalender da FastF1 API Probleme hat
     """
     print("🔍 Suche aktuelles Rennwochenende...")
     
-    current_year = datetime.now().year
-    current_date = datetime.now()
+    current_date = datetime.now().date()
     
-    try:
-        # Lade den Rennkalender für das aktuelle Jahr
-        schedule = fastf1.get_event_schedule(current_year)
-        print(f"📅 Rennkalender für {current_year} geladen ({len(schedule)} Events)")
+    # F1 2025 Kalender mit Sprint-Wochenenden
+    # Sprint-Wochenenden: China, Miami, Belgien, USA (Austin), Brasilien, Qatar
+    f1_2025_calendar = [
+        {"name": "Australian Grand Prix", "date": "2025-03-16", "sprint": False},
+        {"name": "Chinese Grand Prix", "date": "2025-03-23", "sprint": True},
+        {"name": "Japanese Grand Prix", "date": "2025-04-06", "sprint": False},
+        {"name": "Bahrain Grand Prix", "date": "2025-04-13", "sprint": False},
+        {"name": "Saudi Arabian Grand Prix", "date": "2025-04-20", "sprint": False},
+        {"name": "Miami Grand Prix", "date": "2025-05-04", "sprint": True},
+        {"name": "Emilia Romagna Grand Prix", "date": "2025-05-18", "sprint": False},
+        {"name": "Monaco Grand Prix", "date": "2025-05-25", "sprint": False},
+        {"name": "Spanish Grand Prix", "date": "2025-06-01", "sprint": False},
+        {"name": "Canadian Grand Prix", "date": "2025-06-15", "sprint": False},
+        {"name": "Austrian Grand Prix", "date": "2025-06-29", "sprint": False},
+        {"name": "British Grand Prix", "date": "2025-07-06", "sprint": False},
+        {"name": "Belgian Grand Prix", "date": "2025-07-27", "sprint": True},
+        {"name": "Hungarian Grand Prix", "date": "2025-08-03", "sprint": False},
+        {"name": "Dutch Grand Prix", "date": "2025-08-31", "sprint": False},
+        {"name": "Italian Grand Prix", "date": "2025-09-07", "sprint": False},
+        {"name": "Azerbaijan Grand Prix", "date": "2025-09-21", "sprint": False},
+        {"name": "Singapore Grand Prix", "date": "2025-10-05", "sprint": False},
+        {"name": "United States Grand Prix", "date": "2025-10-19", "sprint": True},
+        {"name": "Mexican Grand Prix", "date": "2025-10-26", "sprint": False},
+        {"name": "Brazilian Grand Prix", "date": "2025-11-09", "sprint": True},
+        {"name": "Las Vegas Grand Prix", "date": "2025-11-22", "sprint": False},
+        {"name": "Qatar Grand Prix", "date": "2025-11-30", "sprint": True},
+        {"name": "Abu Dhabi Grand Prix", "date": "2025-12-07", "sprint": False}
+    ]
+    
+    print(f"📅 Lade F1 2025 Kalender ({len(f1_2025_calendar)} Rennen)")
+    
+    # Suche das passende Event
+    best_event = None
+    best_date_diff = float('inf')
+    
+    for event in f1_2025_calendar:
+        race_date = datetime.strptime(event["date"], "%Y-%m-%d").date()
+        date_diff = (current_date - race_date).days
         
-        # Suche das passende Event
-        best_event = None
-        best_date_diff = float('inf')
+        print(f"📊 {event['name']}: {event['date']} (Diff: {date_diff} Tage) - Sprint: {event['sprint']}")
         
-        for index, event in schedule.iterrows():
-            event_name = event['EventName']
-            
-            # Nutze das Renndatum (Sonntag) als Referenz
-            race_date = pd.to_datetime(event['Session5Date']).to_pydatetime()  # Session5 = Rennen
-            
-            # Berechne Zeitunterschied zu heute
-            date_diff = (current_date - race_date).days
-            
-            print(f"📊 {event_name}: {race_date.strftime('%Y-%m-%d')} (Diff: {date_diff} Tage)")
-            
-            # Suche das letzte Rennen (0-3 Tage her) oder das nächste anstehende
-            if -7 <= date_diff <= 3:  # 7 Tage vor bis 3 Tage nach dem Rennen
-                if abs(date_diff) < abs(best_date_diff):
-                    best_event = event
-                    best_date_diff = date_diff
+        # Suche das Rennen im Zeitraum von -7 bis +3 Tagen
+        if -7 <= date_diff <= 3:
+            if abs(date_diff) < abs(best_date_diff):
+                best_event = event
+                best_date_diff = date_diff
+    
+    if best_event is not None:
+        print(f"🏁 Gefunden: {best_event['name']}")
+        print(f"🏃 Sprint-Wochenende: {'Ja' if best_event['sprint'] else 'Nein'}")
+        print(f"📅 Renndatum: {best_event['date']}")
         
-        if best_event is not None:
-            event_name = best_event['EventName']
-            
-            # Prüfe ob Sprint-Wochenende (Session 3 = Sprint)
-            has_sprint = pd.notna(best_event['Session3Date'])
-            
-            print(f"🏁 Gefunden: {event_name}")
-            print(f"🏃 Sprint-Wochenende: {'Ja' if has_sprint else 'Nein'}")
-            print(f"📅 Renndatum: {pd.to_datetime(best_event['Session5Date']).strftime('%Y-%m-%d')}")
-            
-            return current_year, event_name, has_sprint
-        else:
-            print("❌ Kein passendes Rennwochenende gefunden")
-            return None, None, False
-            
-    except Exception as e:
-        print(f"❌ Fehler beim Laden des Rennkalenders: {e}")
+        return 2025, best_event['name'], best_event['sprint']
+    else:
+        print("❌ Kein passendes Rennwochenende gefunden")
         return None, None, False
 
 def find_gp_database(gp_name, year):
