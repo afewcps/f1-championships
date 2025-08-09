@@ -2,69 +2,82 @@ name: F1 Constructors Championship Table
 
 on:
   schedule:
-    # Samstag und Sonntag stündlich (nur an Rennwochenenden)
-    - cron: '0 * * * 6'  # Samstag
-    - cron: '0 * * * 0'  # Sonntag
+ # Australian Grand Prix
+    - cron: "0 * 15 3 *"  # Samstag
+    - cron: "0 * 16 3 *"  # Sonntag
+    # Chinese Grand Prix
+    - cron: "0 * 22 3 *"
+    - cron: "0 * 23 3 *"
+    # Japanese Grand Prix
+    - cron: "0 * 5 4 *"
+    - cron: "0 * 6 4 *"
+    # Bahrain Grand Prix
+    - cron: "0 * 12 4 *"
+    - cron: "0 * 13 4 *"
+    # Saudi Arabian Grand Prix
+    - cron: "0 * 19 4 *"
+    - cron: "0 * 20 4 *"
+    # Miami Grand Prix
+    - cron: "0 * 3 5 *"
+    - cron: "0 * 4 5 *"
+    # Emilia Romagna Grand Prix
+    - cron: "0 * 17 5 *"
+    - cron: "0 * 18 5 *"
+    # Monaco Grand Prix
+    - cron: "0 * 24 5 *"
+    - cron: "0 * 25 5 *"
+    # Spanish Grand Prix
+    - cron: "0 * 31 5 *"
+    - cron: "0 * 1 6 *"
+    # Canadian Grand Prix
+    - cron: "0 * 14 6 *"
+    - cron: "0 * 15 6 *"
+    # Austrian Grand Prix
+    - cron: "0 * 28 6 *"
+    - cron: "0 * 29 6 *"
+    # British Grand Prix
+    - cron: "0 * 5 7 *"
+    - cron: "0 * 6 7 *"
+    # Belgian Grand Prix
+    - cron: "0 * 26 7 *"
+    - cron: "0 * 27 7 *"
+    # Hungarian Grand Prix
+    - cron: "0 * 2 8 *"
+    - cron: "0 * 3 8 *"
+    # Dutch Grand Prix
+    - cron: "0 * 30 8 *"
+    - cron: "0 * 31 8 *"
+    # Italian Grand Prix
+    - cron: "0 * 6 9 *"
+    - cron: "0 * 7 9 *"
+    # Azerbaijan Grand Prix
+    - cron: "0 * 20 9 *"
+    - cron: "0 * 21 9 *"
+    # Singapore Grand Prix
+    - cron: "0 * 4 10 *"
+    - cron: "0 * 5 10 *"
+    # United States Grand Prix
+    - cron: "0 * 18 10 *"
+    - cron: "0 * 19 10 *"
+    # Mexican Grand Prix
+    - cron: "0 * 25 10 *"
+    - cron: "0 * 26 10 *"
+    # Brazilian Grand Prix
+    - cron: "0 * 8 11 *"
+    - cron: "0 * 9 11 *"
+    # Las Vegas Grand Prix
+    - cron: "0 * 21 11 *"
+    - cron: "0 * 22 11 *"
+    # Qatar Grand Prix
+    - cron: "0 * 29 11 *"
+    - cron: "0 * 30 11 *"
+    # Abu Dhabi Grand Prix
+    - cron: "0 * 6 12 *"
+    - cron: "0 * 7 12 *"
   workflow_dispatch:
 
 jobs:
-  check-race-weekend:
-    runs-on: ubuntu-latest
-    outputs:
-      is-race-weekend: ${{ steps.check.outputs.is-race-weekend }}
-      race-name: ${{ steps.check.outputs.race-name }}
-    steps:
-    - name: Check if today is a race weekend (Sa/So)
-      id: check
-      run: |
-        # F1 2025 Race Dates (Samstag/Sonntag für Points Updates)
-        race_dates=(
-          "2025-03-15,2025-03-16,Australian Grand Prix"
-          "2025-03-22,2025-03-23,Chinese Grand Prix"
-          "2025-04-05,2025-04-06,Japanese Grand Prix"
-          "2025-04-12,2025-04-13,Bahrain Grand Prix"
-          "2025-04-19,2025-04-20,Saudi Arabian Grand Prix"
-          "2025-05-03,2025-05-04,Miami Grand Prix"
-          "2025-05-17,2025-05-18,Emilia Romagna Grand Prix"
-          "2025-05-24,2025-05-25,Monaco Grand Prix"
-          "2025-05-31,2025-06-01,Spanish Grand Prix"
-          "2025-06-14,2025-06-15,Canadian Grand Prix"
-          "2025-06-28,2025-06-29,Austrian Grand Prix"
-          "2025-07-05,2025-07-06,British Grand Prix"
-          "2025-07-26,2025-07-27,Belgian Grand Prix"
-          "2025-08-02,2025-08-03,Hungarian Grand Prix"
-          "2025-08-30,2025-08-31,Dutch Grand Prix"
-          "2025-09-06,2025-09-07,Italian Grand Prix"
-          "2025-09-20,2025-09-21,Azerbaijan Grand Prix"
-          "2025-10-04,2025-10-05,Singapore Grand Prix"
-          "2025-10-18,2025-10-19,United States Grand Prix"
-          "2025-10-25,2025-10-26,Mexican Grand Prix"
-          "2025-11-08,2025-11-09,Brazilian Grand Prix"
-          "2025-11-21,2025-11-22,Las Vegas Grand Prix"
-          "2025-11-29,2025-11-30,Qatar Grand Prix"
-          "2025-12-06,2025-12-07,Abu Dhabi Grand Prix"
-        )
-        
-        today=$(date +%Y-%m-%d)
-        is_race_weekend=false
-        race_name=""
-        
-        for race in "${race_dates[@]}"; do
-          IFS=',' read -r saturday sunday name <<< "$race"
-          if [[ "$today" == "$saturday" ]] || [[ "$today" == "$sunday" ]]; then
-            is_race_weekend=true
-            race_name="$name"
-            break
-          fi
-        done
-        
-        echo "is-race-weekend=$is_race_weekend" >> $GITHUB_OUTPUT
-        echo "race-name=$race_name" >> $GITHUB_OUTPUT
-        echo "🏁 Today: $today, Race Weekend: $is_race_weekend, Race: $race_name"
-
   update-constructors:
-    needs: check-race-weekend
-    if: needs.check-race-weekend.outputs.is-race-weekend == 'true'
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -79,11 +92,13 @@ jobs:
       env:
         NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
       run: |
-        echo "🏗️ Updating Constructors Championship for ${{ needs.check-race-weekend.outputs.race-name }}"
+        echo "🏗️ Updating Constructors Championship for..."
         python f1_constructors_table_ACTIONS.py
     - name: Log completion
       if: success()
       run: echo "✅ Constructors Championship updated at $(date)"
     - name: Log failure
       if: failure()
-      run: echo "❌ Constructors Championship update failed at $(date)"
+      run: |
+        echo "❌ Drivers Championship update failed at $(date)"
+        exit 1
