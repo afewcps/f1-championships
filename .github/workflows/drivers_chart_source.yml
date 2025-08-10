@@ -100,4 +100,4 @@ jobs:
     - name: Log failure
       if: failure()
       run: echo "❌ Drivers Championship update failed at $(date)"
-exit 1
+           exit 1
