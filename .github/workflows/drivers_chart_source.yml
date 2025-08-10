@@ -99,6 +99,5 @@ jobs:
       run: echo "✅ Chart data synced at $(date)"
     - name: Log failure
       if: failure()
-       run: |
-        echo "❌ Drivers Championship update failed at $(date)"
+      run: echo "❌ Drivers Championship update failed at $(date)"
 exit 1
