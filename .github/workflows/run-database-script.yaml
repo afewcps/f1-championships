@@ -1,8 +1,79 @@
-name: Run database script daily
+name: Drivers Championship Chart
 
 on:
   schedule:
-    - cron: '0 6 * * *'  # Jeden Tag um 06:00 UTC
+  # Australian Grand Prix
+    - cron: "0 * 15 3 *"  # Samstag
+    - cron: "0 * 16 3 *"  # Sonntag
+    # Chinese Grand Prix
+    - cron: "0 * 22 3 *"
+    - cron: "0 * 23 3 *"
+    # Japanese Grand Prix
+    - cron: "0 * 5 4 *"
+    - cron: "0 * 6 4 *"
+    # Bahrain Grand Prix
+    - cron: "0 * 12 4 *"
+    - cron: "0 * 13 4 *"
+    # Saudi Arabian Grand Prix
+    - cron: "0 * 19 4 *"
+    - cron: "0 * 20 4 *"
+    # Miami Grand Prix
+    - cron: "0 * 3 5 *"
+    - cron: "0 * 4 5 *"
+    # Emilia Romagna Grand Prix
+    - cron: "0 * 17 5 *"
+    - cron: "0 * 18 5 *"
+    # Monaco Grand Prix
+    - cron: "0 * 24 5 *"
+    - cron: "0 * 25 5 *"
+    # Spanish Grand Prix
+    - cron: "0 * 31 5 *"
+    - cron: "0 * 1 6 *"
+    # Canadian Grand Prix
+    - cron: "0 * 14 6 *"
+    - cron: "0 * 15 6 *"
+    # Austrian Grand Prix
+    - cron: "0 * 28 6 *"
+    - cron: "0 * 29 6 *"
+    # British Grand Prix
+    - cron: "0 * 5 7 *"
+    - cron: "0 * 6 7 *"
+    # Belgian Grand Prix
+    - cron: "0 * 26 7 *"
+    - cron: "0 * 27 7 *"
+    # Hungarian Grand Prix
+    - cron: "0 * 2 8 *"
+    - cron: "0 * 3 8 *"
+    # Dutch Grand Prix
+    - cron: "0 * 30 8 *"
+    - cron: "0 * 31 8 *"
+    # Italian Grand Prix
+    - cron: "0 * 6 9 *"
+    - cron: "0 * 7 9 *"
+    # Azerbaijan Grand Prix
+    - cron: "0 * 20 9 *"
+    - cron: "0 * 21 9 *"
+    # Singapore Grand Prix
+    - cron: "0 * 4 10 *"
+    - cron: "0 * 5 10 *"
+    # United States Grand Prix
+    - cron: "0 * 18 10 *"
+    - cron: "0 * 19 10 *"
+    # Mexican Grand Prix
+    - cron: "0 * 25 10 *"
+    - cron: "0 * 26 10 *"
+    # Brazilian Grand Prix
+    - cron: "0 * 8 11 *"
+    - cron: "0 * 9 11 *"
+    # Las Vegas Grand Prix
+    - cron: "0 * 21 11 *"
+    - cron: "0 * 22 11 *"
+    # Qatar Grand Prix
+    - cron: "0 * 29 11 *"
+    - cron: "0 * 30 11 *"
+    # Abu Dhabi Grand Prix
+    - cron: "0 * 6 12 *"
+    - cron: "0 * 7 12 *"
   workflow_dispatch:     # Manuelles Starten erlaubt (optional)
 
 jobs:
