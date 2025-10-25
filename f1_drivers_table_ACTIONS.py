@@ -203,8 +203,8 @@ def create_notion_database(weekend_points, total_points):
             driver_properties[location] = {"number": points[i] if points[i] > 0 else None}
         
         # Erstelle den Eintrag
-        notion.pages.update(
-            page_id=page_id,
+        notion.pages.create(
+            parent={"database_id": database_id},
             properties=driver_properties
         )
     
