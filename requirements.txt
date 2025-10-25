@@ -1,5 +1,5 @@
 streamlit
-notion-client
+notion-client>=2.3.0
 fastf1
 matplotlib
 pandas
