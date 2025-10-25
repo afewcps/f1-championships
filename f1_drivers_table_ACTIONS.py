@@ -204,7 +204,7 @@ def create_notion_database(weekend_points, total_points):
         
         # Erstelle den Eintrag
         notion.pages.update(
-            parent={"database_id": database_id},
+            page_id=page_id,
             properties=driver_properties
         )
     
