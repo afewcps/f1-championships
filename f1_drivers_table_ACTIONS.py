@@ -159,7 +159,8 @@ def create_notion_database(weekend_points, total_points):
     # Suche nach bestehender Datenbank mit exakt diesem Titel
     database_id = None
     try:
-        results = notion.search(query=DATABASE_NAME, filter={"property": "object", "value": "database"}).get("results", [])
+        # Suche ohne Filter - filtere dann manuell nach databases
+        results = notion.search(query=DATABASE_NAME).get("results", [])
         print(f"Notion search returned {len(results)} results for query '{DATABASE_NAME}'")
         for result in results:
             if result.get("object") == "database":
