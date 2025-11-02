@@ -166,12 +166,28 @@ def create_notion_database(weekend_points, total_points):
         properties[location] = {"number": {}}
     
     # Aktualisiere die Datenbank-Eigenschaften
-    notion.databases.update(database_id=database_id, properties=properties)
+    try:
+        notion.databases.update(database_id=database_id, properties=properties)
+        print("✅ Properties aktualisiert")
+    except Exception as e:
+        print(f"⚠️ Warnung beim Properties-Update: {e}")
     
     # Lösche alle existierenden Einträge
-    existing_entries = notion.databases.query(database_id=database_id).get("results", [])
-    for entry in existing_entries:
-        notion.pages.update(page_id=entry["id"], archived=True)
+    try:
+        # Korrekte Methode für notion-client
+        from notion_client.helpers import iterate_paginated_api
+        
+        existing_entries = []
+        for page in iterate_paginated_api(notion.databases.query, database_id=database_id):
+            existing_entries.append(page)
+        
+        print(f"🗑️ Lösche {len(existing_entries)} alte Einträge...")
+        for entry in existing_entries:
+            notion.pages.update(page_id=entry["id"], archived=True)
+            
+    except Exception as e:
+        print(f"⚠️ Fehler beim Löschen alter Einträge: {e}")
+        print("Fahre trotzdem fort...")
     
     # Füge die Fahrer hinzu
     for driver in sorted_drivers:
