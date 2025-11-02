@@ -22,44 +22,44 @@ BASE_URL = "http://api.jolpi.ca/ergast/f1/current/"
 # Team Colors Dictionary
 TEAM_COLORS = {
     # Red Bull Racing
-    "Max Verstappen": "#0600EF",  # Deep Blue
-    "Yuki Tsunoda": "#0600EF",    # Deep Blue
+    "Max Verstappen": "#0600EF",
+    "Yuki Tsunoda": "#0600EF",
     
     # Mercedes
-    "George Russell": "#00D2BE",  # Turquoise
-    "Andrea Kimi Antonelli": "#00D2BE",  # Turquoise
+    "George Russell": "#00D2BE",
+    "Andrea Kimi Antonelli": "#00D2BE",
     
     # Ferrari
-    "Charles Leclerc": "#DC0000",  # Ferrari Red
-    "Lewis Hamilton": "#DC0000",     # Ferrari Red
+    "Charles Leclerc": "#DC0000",
+    "Lewis Hamilton": "#DC0000",
     
     # McLaren
-    "Lando Norris": "#FF8700",    # Orange
-    "Oscar Piastri": "#FF8700",   # Orange
+    "Lando Norris": "#FF8700",
+    "Oscar Piastri": "#FF8700",
     
     # Aston Martin
-    "Fernando Alonso": "#006F62",  # Racing Green
-    "Lance Stroll": "#006F62",     # Racing Green
+    "Fernando Alonso": "#006F62",
+    "Lance Stroll": "#006F62",
     
     # Williams
-    "Alexander Albon": "#005AFF",  # Williams Blue
-    "Carlos Sainz": "#005AFF",   # Williams Blue
+    "Alexander Albon": "#005AFF",
+    "Carlos Sainz": "#005AFF",
     
     # Alpine
-    "Pierre Gasly": "#0090FF",    # Alpine Blue
-    "Jack Doohan": "#0090FF",    # Alpine Blue
+    "Pierre Gasly": "#0090FF",
+    "Jack Doohan": "#0090FF",
     
     # AlphaTauri
-    "Liam Lawson": "#0131d1",  # Blue
-    "Isack Hadjar": "#0131d1",      # Blue
+    "Liam Lawson": "#0131d1",
+    "Isack Hadjar": "#0131d1",
     
     # Haas
-    "Esteban Ocon": "#FFFFFF",  # White
-    "Oliver Bearman": "#FFFFFF",  # White
+    "Esteban Ocon": "#FFFFFF",
+    "Oliver Bearman": "#FFFFFF",
     
     # Kick Sauber
-    "Nico Hülkenberg": "#00e701",  #Green
-    "Gabriel Bortoletto": "#00e701", #Green
+    "Nico Hülkenberg": "#00e701",
+    "Gabriel Bortoletto": "#00e701",
 }
 
 def get_sprint_points(round_num):
@@ -140,6 +140,7 @@ def get_cumulative_points():
     total_points = calculate_total_points(weekend_points)
     
     return standings, total_points
+
 def create_notion_database(weekend_points, total_points):
     """Erstellt oder aktualisiert die Notion-Datenbank mit den F1-Fahrerwertungen (robuste Version)."""
     notion = Client(auth=NOTION_TOKEN)
@@ -158,7 +159,7 @@ def create_notion_database(weekend_points, total_points):
     # Suche nach bestehender Datenbank mit exakt diesem Titel
     database_id = None
     try:
-        results = notion.search(query=DATABASE_NAME).get("results", [])
+        results = notion.search(query=DATABASE_NAME, filter={"property": "object", "value": "database"}).get("results", [])
         print(f"Notion search returned {len(results)} results for query '{DATABASE_NAME}'")
         for result in results:
             if result.get("object") == "database":
@@ -172,17 +173,29 @@ def create_notion_database(weekend_points, total_points):
         print("❌ Fehler bei Notion search():", repr(e))
         raise
 
-    # Erstelle die Properties-Definition
+    # Erstelle die Properties-Definition (KORRIGIERTE VERSION)
     properties = {
-        "Driver": {"title": {}},
-        "Total": {"number": {}}
+        "Driver": {
+            "title": {}  # Title property braucht keine weiteren Konfigurationen
+        },
+        "Total": {
+            "number": {
+                "format": "number"  # Explizites Format angeben
+            }
+        }
     }
+    
+    # Füge alle Rennorte als Number-Properties hinzu
     for location in RACE_LOCATIONS:
-        properties[location] = {"number": {}}
+        properties[location] = {
+            "number": {
+                "format": "number"
+            }
+        }
 
     # Wenn keine DB existiert: erstellen
     if not database_id:
-        print("Keine existierende Datenbank gefunden — erstelle neue Datenbank...")
+        print("Keine existierende Datenbank gefunden – erstelle neue Datenbank...")
         try:
             response = notion.databases.create(
                 parent={"type": "page_id", "page_id": parent_page_id},
@@ -190,25 +203,46 @@ def create_notion_database(weekend_points, total_points):
                 properties=properties
             )
             database_id = response.get("id")
-            print(f"Erstellt neue Database: {database_id}")
+            print(f"✅ Erstellt neue Database: {database_id}")
         except Exception as e:
             print("❌ Fehler beim Erstellen der Datenbank:", repr(e))
-            # wenn Notion eine detailliertere Response hat, geben wir sie aus (falls verfügbar)
             try:
-                import traceback; traceback.print_exc()
+                import traceback
+                traceback.print_exc()
             except:
                 pass
             raise
-
     else:
         print(f"Verwende existierende Database: {database_id}")
-        # Versuche die Properties zu aktualisieren (falls notwendig)
+        
+        # Hole aktuelle Properties der Datenbank
         try:
-            notion.databases.update(database_id=database_id, properties=properties)
-            print("Datenbank-Eigenschaften (properties) aktualisiert.")
+            db_info = notion.databases.retrieve(database_id=database_id)
+            existing_props = db_info.get("properties", {})
+            print(f"Existierende Properties: {list(existing_props.keys())}")
+            
+            # Prüfe, welche Properties fehlen und füge sie hinzu
+            props_to_add = {}
+            for prop_name, prop_config in properties.items():
+                if prop_name not in existing_props:
+                    props_to_add[prop_name] = prop_config
+                    print(f"Property '{prop_name}' fehlt - wird hinzugefügt")
+            
+            # Aktualisiere nur, wenn neue Properties hinzugefügt werden müssen
+            if props_to_add:
+                print(f"Füge {len(props_to_add)} neue Properties hinzu...")
+                notion.databases.update(database_id=database_id, properties=props_to_add)
+                print("✅ Datenbank-Eigenschaften (properties) aktualisiert.")
+            else:
+                print("✅ Alle Properties existieren bereits.")
+                
         except Exception as e:
             print("⚠️ Warnung: properties update fehlgeschlagen:", repr(e))
-            # Nicht fatal: wir fahren trotzdem fort, denn evtl. sind Eigenschaften bereits korrekt.
+            try:
+                import traceback
+                traceback.print_exc()
+            except:
+                pass
     
         # Lösche / archive alle aktiven Einträge in dieser DB (clean slate)
         try:
@@ -224,18 +258,34 @@ def create_notion_database(weekend_points, total_points):
 
     # Safety check: database_id muss jetzt vorhanden sein
     if not database_id:
-        raise RuntimeError("Database ID konnte nicht ermittelt werden — Abbruch.")
+        raise RuntimeError("Database ID konnte nicht ermittelt werden – Abbruch.")
+
+    # Warte kurz, damit Notion die Properties verarbeiten kann
+    import time
+    time.sleep(2)
 
     # Erstelle für jeden Fahrer eine neue Page (mit Logging)
     created_count = 0
     for driver in sorted_drivers:
         driver_properties = {
-            "Driver": {"title": [{"text": {"content": driver}}]},
-            "Total": {"number": total_points[driver]}
+            "Driver": {
+                "title": [
+                    {
+                        "type": "text",
+                        "text": {"content": driver}
+                    }
+                ]
+            },
+            "Total": {
+                "number": total_points[driver]
+            }
         }
+        
         points = weekend_points.get(driver, [0] * len(RACE_LOCATIONS))
         for i, location in enumerate(RACE_LOCATIONS):
-            driver_properties[location] = {"number": points[i] if points[i] > 0 else None}
+            # Nur Werte > 0 eintragen, sonst None (leeres Feld)
+            if points[i] > 0:
+                driver_properties[location] = {"number": points[i]}
 
         try:
             resp = notion.pages.create(
@@ -244,18 +294,17 @@ def create_notion_database(weekend_points, total_points):
             )
             created_count += 1
             created_id = resp.get("id")
-            print(f"Erstellt Page für {driver}: id={created_id}")
+            print(f"✅ Erstellt Page für {driver}: id={created_id}")
         except Exception as e:
             print(f"❌ Fehler beim Erstellen der Page für {driver}:", repr(e))
-            # Drucke Stacktrace wenn möglich
             try:
-                import traceback; traceback.print_exc()
+                import traceback
+                traceback.print_exc()
             except:
                 pass
-            # Continue / skip diese Person, damit der ganze Run nicht sofort abbricht
             continue
 
-    print(f"Erstellt {created_count} Fahrer-Einträge in der Datenbank {database_id}")
+    print(f"✅ Erstellt {created_count} Fahrer-Einträge in der Datenbank {database_id}")
     return database_id
 
 
@@ -291,6 +340,8 @@ def update_f1_data():
         
     except Exception as e:
         print(f"❌ Fehler beim Aktualisieren der Daten: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return False
 
 if __name__ == "__main__":
