@@ -8,7 +8,7 @@ from notion_client import Client
 
 # Notion API Setup
 NOTION_TOKEN = os.getenv("NOTION_TOKEN")
-DATABASE_ID = "1e66839379ed800790bfd3db2259c169"  # Direkte Database ID
+DATABASE_ID = "29f6839379ed8141977dc42824014a75"  # Direkte Database ID
 
 # Liste der Rennorte für die Saison 2025 in englischer Sprache und korrekter Reihenfolge
 RACE_LOCATIONS = [
