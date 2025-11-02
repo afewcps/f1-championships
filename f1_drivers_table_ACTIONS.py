@@ -1,6 +1,7 @@
 import requests
 import json
 import os
+import time
 from notion_client import Client
 
 # F1 Drivers Championship Notion Updater für GitHub Actions
@@ -21,43 +22,24 @@ BASE_URL = "http://api.jolpi.ca/ergast/f1/current/"
 
 # Team Colors Dictionary
 TEAM_COLORS = {
-    # Red Bull Racing
     "Max Verstappen": "#0600EF",
     "Yuki Tsunoda": "#0600EF",
-    
-    # Mercedes
     "George Russell": "#00D2BE",
     "Andrea Kimi Antonelli": "#00D2BE",
-    
-    # Ferrari
     "Charles Leclerc": "#DC0000",
     "Lewis Hamilton": "#DC0000",
-    
-    # McLaren
     "Lando Norris": "#FF8700",
     "Oscar Piastri": "#FF8700",
-    
-    # Aston Martin
     "Fernando Alonso": "#006F62",
     "Lance Stroll": "#006F62",
-    
-    # Williams
     "Alexander Albon": "#005AFF",
     "Carlos Sainz": "#005AFF",
-    
-    # Alpine
     "Pierre Gasly": "#0090FF",
     "Jack Doohan": "#0090FF",
-    
-    # AlphaTauri
     "Liam Lawson": "#0131d1",
     "Isack Hadjar": "#0131d1",
-    
-    # Haas
     "Esteban Ocon": "#FFFFFF",
     "Oliver Bearman": "#FFFFFF",
-    
-    # Kick Sauber
     "Nico Hülkenberg": "#00e701",
     "Gabriel Bortoletto": "#00e701",
 }
@@ -91,10 +73,8 @@ def get_weekend_points():
             data = response.json()
             races = data['MRData']['RaceTable']['Races']
             
-            # Sprint-Punkte abrufen
             sprint_points = get_sprint_points(round_num)
 
-            # Hole Punkte aus dem aktuellen Rennen, falls Daten vorhanden
             if races:
                 for result in races[0]['Results']:
                     driver = f"{result['Driver']['givenName']} {result['Driver']['familyName']}"
@@ -117,76 +97,57 @@ def calculate_total_points(weekend_points):
     
     return total_points
 
-def get_cumulative_points():
-    """Lädt die Fahrerwertung aus der API mit kumulativen Punkten."""
-    # Initialize standings with all known drivers
-    standings = {team: [0] * len(RACE_LOCATIONS) for team in TEAM_COLORS.keys()}
-    
-    # Holen wir die Wochenendpunkte und summieren sie korrekt
-    weekend_points = get_weekend_points()
-    
-    # Aktualisiere für jeden Fahrer die kumulativen Punktestände
-    for driver, points_list in weekend_points.items():
-        if driver not in standings:
-            standings[driver] = [0] * len(RACE_LOCATIONS)
-        
-        # Berechne den kumulativen Punktestand für jeden GP
-        cumulative = 0
-        for i, points in enumerate(points_list):
-            cumulative += points
-            standings[driver][i] = cumulative
-    
-    # Berechne die korrekten Gesamtpunkte
-    total_points = calculate_total_points(weekend_points)
-    
-    return standings, total_points
+def get_or_create_parent_page(notion):
+    """Gibt die fest definierte Parent-Page-ID zurück"""
+    return "1e26839379ed80edbd00df2aaf120777"
 
 def create_notion_database(weekend_points, total_points):
-    """Erstellt oder aktualisiert die Notion-Datenbank mit den F1-Fahrerwertungen (robuste Version)."""
+    """Erstellt oder aktualisiert die Notion-Datenbank mit den F1-Fahrerwertungen."""
     notion = Client(auth=NOTION_TOKEN)
 
-    # Sortiere Fahrer nach Gesamtpunkten (absteigend)
     sorted_drivers = sorted(
         [driver for driver in weekend_points.keys() if driver in total_points],
         key=lambda x: total_points[x],
         reverse=True
     )
 
-    # Parent page holen
     parent_page_id = get_or_create_parent_page(notion)
     print(f"Parent page id: {parent_page_id}")
 
-    # Suche nach bestehender Datenbank mit exakt diesem Titel
+    # Suche nach bestehender Datenbank - OHNE Filter
     database_id = None
     try:
-        # Suche ohne Filter - filtere dann manuell nach databases
+        # Notion API v2023-06-01+ erlaubt nur "page" oder "data_source" als Filter
+        # Wir suchen ohne Filter und filtern manuell
         results = notion.search(query=DATABASE_NAME).get("results", [])
         print(f"Notion search returned {len(results)} results for query '{DATABASE_NAME}'")
+        
         for result in results:
             if result.get("object") == "database":
-                # title kann mehrere Blöcke enthalten -> compare plain_text join
                 title_text = "".join([t.get("plain_text", "") for t in result.get("title", [])])
                 print(f"Found database candidate: id={result.get('id')}, title='{title_text}'")
                 if title_text == DATABASE_NAME:
                     database_id = result["id"]
+                    print(f"✅ Matched database: {database_id}")
                     break
     except Exception as e:
         print("❌ Fehler bei Notion search():", repr(e))
+        import traceback
+        traceback.print_exc()
         raise
 
-    # Erstelle die Properties-Definition (KORRIGIERTE VERSION)
+    # Properties-Definition mit explizitem Format
     properties = {
         "Driver": {
-            "title": {}  # Title property braucht keine weiteren Konfigurationen
+            "title": {}
         },
         "Total": {
             "number": {
-                "format": "number"  # Explizites Format angeben
+                "format": "number"
             }
         }
     }
     
-    # Füge alle Rennorte als Number-Properties hinzu
     for location in RACE_LOCATIONS:
         properties[location] = {
             "number": {
@@ -194,7 +155,7 @@ def create_notion_database(weekend_points, total_points):
             }
         }
 
-    # Wenn keine DB existiert: erstellen
+    # Database erstellen wenn nicht vorhanden
     if not database_id:
         print("Keine existierende Datenbank gefunden – erstelle neue Datenbank...")
         try:
@@ -207,75 +168,62 @@ def create_notion_database(weekend_points, total_points):
             print(f"✅ Erstellt neue Database: {database_id}")
         except Exception as e:
             print("❌ Fehler beim Erstellen der Datenbank:", repr(e))
-            try:
-                import traceback
-                traceback.print_exc()
-            except:
-                pass
+            import traceback
+            traceback.print_exc()
             raise
     else:
         print(f"Verwende existierende Database: {database_id}")
         
-        # Hole aktuelle Properties der Datenbank
+        # Properties prüfen und ergänzen
         try:
             db_info = notion.databases.retrieve(database_id=database_id)
             existing_props = db_info.get("properties", {})
             print(f"Existierende Properties: {list(existing_props.keys())}")
             
-            # Prüfe, welche Properties fehlen und füge sie hinzu
             props_to_add = {}
             for prop_name, prop_config in properties.items():
                 if prop_name not in existing_props:
                     props_to_add[prop_name] = prop_config
                     print(f"Property '{prop_name}' fehlt - wird hinzugefügt")
             
-            # Aktualisiere nur, wenn neue Properties hinzugefügt werden müssen
             if props_to_add:
                 print(f"Füge {len(props_to_add)} neue Properties hinzu...")
                 notion.databases.update(database_id=database_id, properties=props_to_add)
-                print("✅ Datenbank-Eigenschaften (properties) aktualisiert.")
+                print("✅ Datenbank-Eigenschaften aktualisiert.")
             else:
                 print("✅ Alle Properties existieren bereits.")
                 
         except Exception as e:
             print("⚠️ Warnung: properties update fehlgeschlagen:", repr(e))
-            try:
-                import traceback
-                traceback.print_exc()
-            except:
-                pass
+            import traceback
+            traceback.print_exc()
     
-        # Lösche / archive alle aktiven Einträge in dieser DB (clean slate)
+        # Alte Einträge archivieren
         try:
             existing_entries = notion.databases.query(database_id=database_id, page_size=100).get("results", [])
             print(f"Anzahl existierender Einträge: {len(existing_entries)}")
             for entry in existing_entries:
                 eid = entry.get("id")
-                print(f"Archiviere entry id={eid}")
                 notion.pages.update(page_id=eid, archived=True)
+                print(f"Archiviert entry id={eid}")
         except Exception as e:
             print("❌ Fehler beim Archivieren vorhandener Einträge:", repr(e))
+            import traceback
+            traceback.print_exc()
             raise
 
-    # Safety check: database_id muss jetzt vorhanden sein
     if not database_id:
         raise RuntimeError("Database ID konnte nicht ermittelt werden – Abbruch.")
 
-    # Warte kurz, damit Notion die Properties verarbeiten kann
-    import time
+    # Kurze Pause für Notion
     time.sleep(2)
 
-    # Erstelle für jeden Fahrer eine neue Page (mit Logging)
+    # Pages erstellen
     created_count = 0
     for driver in sorted_drivers:
         driver_properties = {
             "Driver": {
-                "title": [
-                    {
-                        "type": "text",
-                        "text": {"content": driver}
-                    }
-                ]
+                "title": [{"type": "text", "text": {"content": driver}}]
             },
             "Total": {
                 "number": total_points[driver]
@@ -284,7 +232,6 @@ def create_notion_database(weekend_points, total_points):
         
         points = weekend_points.get(driver, [0] * len(RACE_LOCATIONS))
         for i, location in enumerate(RACE_LOCATIONS):
-            # Nur Werte > 0 eintragen, sonst None (leeres Feld)
             if points[i] > 0:
                 driver_properties[location] = {"number": points[i]}
 
@@ -298,20 +245,12 @@ def create_notion_database(weekend_points, total_points):
             print(f"✅ Erstellt Page für {driver}: id={created_id}")
         except Exception as e:
             print(f"❌ Fehler beim Erstellen der Page für {driver}:", repr(e))
-            try:
-                import traceback
-                traceback.print_exc()
-            except:
-                pass
+            import traceback
+            traceback.print_exc()
             continue
 
     print(f"✅ Erstellt {created_count} Fahrer-Einträge in der Datenbank {database_id}")
     return database_id
-
-
-def get_or_create_parent_page(notion):
-    """Gibt die fest definierte Parent-Page-ID zurück"""
-    return "1e26839379ed80edbd00df2aaf120777"
 
 def update_f1_data():
     """Hauptfunktion zum Aktualisieren der F1-Daten"""
@@ -324,7 +263,6 @@ def update_f1_data():
         
         print(f"✅ Fertig! Die Fahrer-Meisterschaft wurde in Notion aktualisiert (Database ID: {database_id})")
         
-        # Zeige die aktualisierten Daten in der Konsole
         print("\nAktualisierte Fahrerwertung:")
         print("-" * 50)
         
