@@ -174,19 +174,48 @@ def create_notion_database(weekend_points, total_points):
     
     # Lösche alle existierenden Einträge
     try:
-        # Korrekte Methode für notion-client
-        from notion_client.helpers import iterate_paginated_api
+        print("🗑️ Lösche alte Einträge...")
         
-        existing_entries = []
-        for page in iterate_paginated_api(notion.databases.query, database_id=database_id):
-            existing_entries.append(page)
+        # Verwende die API direkt mit request
+        has_more = True
+        start_cursor = None
+        deleted_count = 0
         
-        print(f"🗑️ Lösche {len(existing_entries)} alte Einträge...")
-        for entry in existing_entries:
-            notion.pages.update(page_id=entry["id"], archived=True)
+        while has_more:
+            # Query Parameter vorbereiten
+            query_params = {
+                "database_id": database_id,
+                "page_size": 100
+            }
+            if start_cursor:
+                query_params["start_cursor"] = start_cursor
+            
+            # Direkte API-Anfrage
+            response = notion.request(
+                path=f"databases/{database_id}/query",
+                method="POST",
+                body={}
+            )
+            
+            results = response.get("results", [])
+            has_more = response.get("has_more", False)
+            start_cursor = response.get("next_cursor")
+            
+            # Lösche jede Page
+            for page in results:
+                notion.pages.update(page_id=page["id"], archived=True)
+                deleted_count += 1
+        
+        print(f"✅ {deleted_count} alte Einträge gelöscht")
+        
+        # Warte kurz, damit Notion die Löschungen verarbeitet
+        import time
+        time.sleep(1)
             
     except Exception as e:
         print(f"⚠️ Fehler beim Löschen alter Einträge: {e}")
+        import traceback
+        traceback.print_exc()
         print("Fahre trotzdem fort...")
     
     # Füge die Fahrer hinzu
