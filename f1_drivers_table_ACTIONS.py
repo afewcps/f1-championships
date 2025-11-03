@@ -109,35 +109,51 @@ def clear_all_database_entries(notion, database_id):
         start_cursor = None
         all_pages = []
         
-        # Schritt 1: Sammle alle Page-IDs
+        # Schritt 1: Sammle alle Page-IDs mit korrekter API-Syntax
         print("📋 Sammle alle Einträge...")
         while has_more:
-            query_params = {"database_id": database_id, "page_size": 100}
+            # Korrekte Methode für notion-client Python Library
             if start_cursor:
-                query_params["start_cursor"] = start_cursor
+                response = notion.databases.query(
+                    database_id=database_id,
+                    start_cursor=start_cursor,
+                    page_size=100
+                )
+            else:
+                response = notion.databases.query(
+                    database_id=database_id,
+                    page_size=100
+                )
             
-            response = notion.databases.query(**query_params)
             pages = response.get("results", [])
             all_pages.extend(pages)
             
             has_more = response.get("has_more", False)
             start_cursor = response.get("next_cursor")
+            
+            print(f"   Batch: {len(pages)} Einträge gefunden")
         
-        print(f"📌 Gefunden: {len(all_pages)} Einträge")
+        print(f"📌 Insgesamt gefunden: {len(all_pages)} Einträge")
         
-        # Schritt 2: Lösche alle gesammelten Pages
+        # Schritt 2: Lösche alle gesammelten Pages mit archived=True
         if len(all_pages) > 0:
-            print("🔥 Beginne mit Löschen...")
+            print("🔥 Beginne mit Archivieren...")
             for i, page in enumerate(all_pages, 1):
                 try:
-                    notion.pages.update(page_id=page["id"], archived=True)
+                    # Verwende archived=True (nicht in_trash)
+                    notion.pages.update(
+                        page_id=page["id"],
+                        archived=True
+                    )
                     deleted_count += 1
-                    if i % 5 == 0:  # Zeige Fortschritt alle 5 Einträge
-                        print(f"   Gelöscht: {i}/{len(all_pages)}")
+                    if i % 5 == 0 or i == len(all_pages):
+                        print(f"   Archiviert: {i}/{len(all_pages)}")
                 except Exception as e:
                     print(f"   ⚠️ Fehler bei Page {page['id']}: {e}")
+                    import traceback
+                    traceback.print_exc()
             
-            print(f"\n✅ {deleted_count} Einträge erfolgreich gelöscht!")
+            print(f"\n✅ {deleted_count} Einträge erfolgreich archiviert!")
             
             # WICHTIG: Warte länger, damit Notion alle Löschungen verarbeitet
             print("⏳ Warte 5 Sekunden auf Notion-Synchronisation...")
