@@ -11,7 +11,7 @@ if not NOTION_TOKEN:
     print("❌ Fehler: NOTION_TOKEN environment variable ist nicht gesetzt!")
     exit(1)
 
-NOTION_PARENT_PAGE_ID = "1e26839379ed80edbd00df2aaf120777"
+NOTION_PARENT_PAGE_ID = "1e36839379ed814bac2ac073c48f4f92"
 
 headers = {
     "Authorization": f"Bearer {NOTION_TOKEN}",
