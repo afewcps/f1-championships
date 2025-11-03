@@ -1,6 +1,7 @@
 import requests
 import json
 import os
+import time
 from notion_client import Client
 
 # F1 Drivers Championship Notion Updater für GitHub Actions
@@ -21,45 +22,26 @@ BASE_URL = "http://api.jolpi.ca/ergast/f1/current/"
 
 # Team Colors Dictionary
 TEAM_COLORS = {
-    # Red Bull Racing
-    "Max Verstappen": "#0600EF",  # Deep Blue
-    "Yuki Tsunoda": "#0600EF",    # Deep Blue
-    
-    # Mercedes
-    "George Russell": "#00D2BE",  # Turquoise
-    "Andrea Kimi Antonelli": "#00D2BE",  # Turquoise
-    
-    # Ferrari
-    "Charles Leclerc": "#DC0000",  # Ferrari Red
-    "Lewis Hamilton": "#DC0000",     # Ferrari Red
-    
-    # McLaren
-    "Lando Norris": "#FF8700",    # Orange
-    "Oscar Piastri": "#FF8700",   # Orange
-    
-    # Aston Martin
-    "Fernando Alonso": "#006F62",  # Racing Green
-    "Lance Stroll": "#006F62",     # Racing Green
-    
-    # Williams
-    "Alexander Albon": "#005AFF",  # Williams Blue
-    "Carlos Sainz": "#005AFF",   # Williams Blue
-    
-    # Alpine
-    "Pierre Gasly": "#0090FF",    # Alpine Blue
-    "Jack Doohan": "#0090FF",    # Alpine Blue
-    
-    # AlphaTauri
-    "Liam Lawson": "#0131d1",  # Blue
-    "Isack Hadjar": "#0131d1",      # Blue
-    
-    # Haas
-    "Esteban Ocon": "#FFFFFF",  # White
-    "Oliver Bearman": "#FFFFFF",  # White
-    
-    # Kick Sauber
-    "Nico Hülkenberg": "#00e701",  #Green
-    "Gabriel Bortoletto": "#00e701", #Green
+    "Max Verstappen": "#0600EF",
+    "Yuki Tsunoda": "#0600EF",
+    "George Russell": "#00D2BE",
+    "Andrea Kimi Antonelli": "#00D2BE",
+    "Charles Leclerc": "#DC0000",
+    "Lewis Hamilton": "#DC0000",
+    "Lando Norris": "#FF8700",
+    "Oscar Piastri": "#FF8700",
+    "Fernando Alonso": "#006F62",
+    "Lance Stroll": "#006F62",
+    "Alexander Albon": "#005AFF",
+    "Carlos Sainz": "#005AFF",
+    "Pierre Gasly": "#0090FF",
+    "Jack Doohan": "#0090FF",
+    "Liam Lawson": "#0131d1",
+    "Isack Hadjar": "#0131d1",
+    "Esteban Ocon": "#FFFFFF",
+    "Oliver Bearman": "#FFFFFF",
+    "Nico Hülkenberg": "#00e701",
+    "Gabriel Bortoletto": "#00e701",
 }
 
 def get_sprint_points(round_num):
@@ -91,10 +73,8 @@ def get_weekend_points():
             data = response.json()
             races = data['MRData']['RaceTable']['Races']
             
-            # Sprint-Punkte abrufen
             sprint_points = get_sprint_points(round_num)
 
-            # Hole Punkte aus dem aktuellen Rennen, falls Daten vorhanden
             if races:
                 for result in races[0]['Results']:
                     driver = f"{result['Driver']['givenName']} {result['Driver']['familyName']}"
@@ -117,152 +97,164 @@ def calculate_total_points(weekend_points):
     
     return total_points
 
-def get_cumulative_points():
-    """Lädt die Fahrerwertung aus der API mit kumulativen Punkten."""
-    # Initialize standings with all known drivers
-    standings = {team: [0] * len(RACE_LOCATIONS) for team in TEAM_COLORS.keys()}
+def clear_all_database_entries(notion, database_id):
+    """Löscht ALLE Einträge aus der Database - komplett."""
+    print("\n" + "="*60)
+    print("🗑️  LÖSCHE ALLE BESTEHENDEN EINTRÄGE")
+    print("="*60)
     
-    # Holen wir die Wochenendpunkte und summieren sie korrekt
-    weekend_points = get_weekend_points()
-    
-    # Aktualisiere für jeden Fahrer die kumulativen Punktestände
-    for driver, points_list in weekend_points.items():
-        if driver not in standings:
-            standings[driver] = [0] * len(RACE_LOCATIONS)
+    deleted_count = 0
+    try:
+        has_more = True
+        start_cursor = None
+        all_pages = []
         
-        # Berechne den kumulativen Punktestand für jeden GP
-        cumulative = 0
-        for i, points in enumerate(points_list):
-            cumulative += points
-            standings[driver][i] = cumulative
-    
-    # Berechne die korrekten Gesamtpunkte
-    total_points = calculate_total_points(weekend_points)
-    
-    return standings, total_points
+        # Schritt 1: Sammle alle Page-IDs
+        print("📋 Sammle alle Einträge...")
+        while has_more:
+            query_params = {"database_id": database_id, "page_size": 100}
+            if start_cursor:
+                query_params["start_cursor"] = start_cursor
+            
+            response = notion.databases.query(**query_params)
+            pages = response.get("results", [])
+            all_pages.extend(pages)
+            
+            has_more = response.get("has_more", False)
+            start_cursor = response.get("next_cursor")
+        
+        print(f"📌 Gefunden: {len(all_pages)} Einträge")
+        
+        # Schritt 2: Lösche alle gesammelten Pages
+        if len(all_pages) > 0:
+            print("🔥 Beginne mit Löschen...")
+            for i, page in enumerate(all_pages, 1):
+                try:
+                    notion.pages.update(page_id=page["id"], archived=True)
+                    deleted_count += 1
+                    if i % 5 == 0:  # Zeige Fortschritt alle 5 Einträge
+                        print(f"   Gelöscht: {i}/{len(all_pages)}")
+                except Exception as e:
+                    print(f"   ⚠️ Fehler bei Page {page['id']}: {e}")
+            
+            print(f"\n✅ {deleted_count} Einträge erfolgreich gelöscht!")
+            
+            # WICHTIG: Warte länger, damit Notion alle Löschungen verarbeitet
+            print("⏳ Warte 5 Sekunden auf Notion-Synchronisation...")
+            time.sleep(5)
+        else:
+            print("✅ Database ist bereits leer")
+        
+        return deleted_count
+        
+    except Exception as e:
+        print(f"❌ FEHLER beim Löschen: {e}")
+        import traceback
+        traceback.print_exc()
+        return deleted_count
 
-def create_notion_database(weekend_points, total_points):
-    """Aktualisiert die Notion-Datenbank mit den F1-Fahrerwertungen"""
-    notion = Client(auth=NOTION_TOKEN)
+def update_database_properties(notion, database_id):
+    """Aktualisiert die Properties der Database."""
+    print("\n" + "="*60)
+    print("🔧 AKTUALISIERE DATABASE PROPERTIES")
+    print("="*60)
     
-    # Sortiere Fahrer nach Gesamtpunkten (absteigend)
+    properties = {
+        "Driver": {"title": {}},
+        "Total": {"number": {}}
+    }
+    
+    for location in RACE_LOCATIONS:
+        properties[location] = {"number": {}}
+    
+    try:
+        notion.databases.update(database_id=database_id, properties=properties)
+        print("✅ Properties aktualisiert")
+        return True
+    except Exception as e:
+        print(f"⚠️ Warnung: {e}")
+        return False
+
+def create_driver_entries(notion, database_id, weekend_points, total_points):
+    """Erstellt alle Fahrer-Einträge neu."""
+    print("\n" + "="*60)
+    print("📝 ERSTELLE NEUE FAHRER-EINTRÄGE")
+    print("="*60)
+    
     sorted_drivers = sorted(
         [driver for driver in weekend_points.keys() if driver in total_points], 
         key=lambda x: total_points[x], 
         reverse=True
     )
     
-    # Verwende die direkte Database ID
-    database_id = DATABASE_ID
+    created_count = 0
     
-    # Erstelle die Datenbank-Eigenschaften
-    properties = {
-        "Driver": {"title": {}},
-        "Total": {"number": {}}
-    }
-    
-    # Füge für jeden Rennort eine Spalte hinzu
-    for location in RACE_LOCATIONS:
-        properties[location] = {"number": {}}
-    
-    # Aktualisiere die Datenbank-Eigenschaften
-    try:
-        notion.databases.update(database_id=database_id, properties=properties)
-        print("✅ Properties aktualisiert")
-    except Exception as e:
-        print(f"⚠️ Warnung beim Properties-Update: {e}")
-    
-    # Lösche alle existierenden Einträge
-    print("🗑️ Lösche alte Einträge...")
-    deleted_count = 0
-    
-    try:
-        has_more = True
-        start_cursor = None
-        
-        while has_more:
-            # Query mit korrekter Syntax
-            if start_cursor:
-                response = notion.databases.query(
-                    **{"database_id": database_id, "start_cursor": start_cursor}
-                )
-            else:
-                response = notion.databases.query(
-                    **{"database_id": database_id}
-                )
-            
-            pages = response.get("results", [])
-            has_more = response.get("has_more", False)
-            start_cursor = response.get("next_cursor")
-            
-            # Archiviere jede Page
-            for page in pages:
-                try:
-                    notion.pages.update(page_id=page["id"], archived=True)
-                    deleted_count += 1
-                    print(f"  Gelöscht: {page['id']}")
-                except Exception as e:
-                    print(f"  ⚠️ Konnte {page['id']} nicht löschen: {e}")
-        
-        print(f"✅ {deleted_count} alte Einträge gelöscht")
-        
-        # Wichtig: Längere Wartezeit nach Löschung
-        import time
-        time.sleep(3)
-            
-    except Exception as e:
-        print(f"❌ Fehler beim Löschen: {e}")
-        import traceback
-        traceback.print_exc()
-    
-    # Füge die Fahrer hinzu
-    for driver in sorted_drivers:
+    for position, driver in enumerate(sorted_drivers, 1):
         driver_properties = {
             "Driver": {"title": [{"text": {"content": driver}}]},
             "Total": {"number": total_points[driver]}
         }
         
-        # Füge Punkte für jedes Rennen hinzu
         points = weekend_points.get(driver, [0] * len(RACE_LOCATIONS))
         for i, location in enumerate(RACE_LOCATIONS):
             driver_properties[location] = {"number": points[i] if points[i] > 0 else None}
         
-        # Erstelle den Eintrag
-        notion.pages.create(
-            parent={"database_id": database_id},
-            properties=driver_properties
-        )
+        try:
+            notion.pages.create(
+                parent={"database_id": database_id},
+                properties=driver_properties
+            )
+            created_count += 1
+            print(f"✅ {position:2d}. {driver:<25} {total_points[driver]:3d} Punkte")
+        except Exception as e:
+            print(f"❌ Fehler bei {driver}: {e}")
     
-    return database_id
+    print(f"\n✅ {created_count} Fahrer erfolgreich eingetragen")
+    return created_count
 
 def update_f1_data():
     """Hauptfunktion zum Aktualisieren der F1-Daten"""
-    print("🔄 Aktualisiere die Fahrer-Meisterschaft in Notion...")
+    print("\n" + "="*60)
+    print("🏎️  F1 DRIVERS CHAMPIONSHIP UPDATE")
+    print("="*60)
+    print(f"Database ID: {DATABASE_ID}")
     
     try:
+        # Initialisiere Notion Client
+        notion = Client(auth=NOTION_TOKEN)
+        print("✅ Notion Client initialisiert")
+        
+        # Hole Daten von der API
+        print("\n📡 Hole Daten von Jolpica API...")
         weekend_points = get_weekend_points()
         total_points = calculate_total_points(weekend_points)
-        database_id = create_notion_database(weekend_points, total_points)
+        print(f"✅ Daten für {len(total_points)} Fahrer geladen")
         
-        print(f"✅ Fertig! Die Fahrer-Meisterschaft wurde in Notion aktualisiert (Database ID: {database_id})")
+        # SCHRITT 1: Lösche ALLE bestehenden Einträge
+        deleted = clear_all_database_entries(notion, DATABASE_ID)
         
-        # Zeige die aktualisierten Daten in der Konsole
-        print("\nAktualisierte Fahrerwertung:")
-        print("-" * 50)
+        # SCHRITT 2: Aktualisiere Properties
+        update_database_properties(notion, DATABASE_ID)
         
-        sorted_drivers = sorted(
-            [driver for driver in weekend_points.keys() if driver in total_points], 
-            key=lambda x: total_points[x], 
-            reverse=True
-        )
+        # SCHRITT 3: Erstelle neue Einträge
+        created = create_driver_entries(notion, DATABASE_ID, weekend_points, total_points)
         
-        for i, driver in enumerate(sorted_drivers, 1):
-            print(f"{i:2d}. {driver:<25} {total_points[driver]:3d} Punkte")
+        # Zusammenfassung
+        print("\n" + "="*60)
+        print("✅ UPDATE ERFOLGREICH ABGESCHLOSSEN!")
+        print("="*60)
+        print(f"Gelöscht: {deleted} Einträge")
+        print(f"Erstellt: {created} Einträge")
+        print("="*60)
         
         return True
         
     except Exception as e:
-        print(f"❌ Fehler beim Aktualisieren der Daten: {str(e)}")
+        print("\n" + "="*60)
+        print(f"❌ FEHLER: {str(e)}")
+        print("="*60)
+        import traceback
+        traceback.print_exc()
         return False
 
 if __name__ == "__main__":
