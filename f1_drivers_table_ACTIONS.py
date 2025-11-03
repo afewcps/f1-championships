@@ -8,9 +8,9 @@ from notion_client import Client
 
 # Notion API Setup
 NOTION_TOKEN = os.getenv("NOTION_TOKEN")
-DATABASE_ID = "29f6839379ed8141977dc42824014a75"  # Inline Database ID
+DATABASE_ID = "29f6839379ed8141977dc42824014a75"  # Database ID (Container)
 
-# Liste der Rennorte für die Saison 2025 in englischer Sprache und korrekter Reihenfolge
+# Liste der Rennorte für die Saison 2025
 RACE_LOCATIONS = [
     "Australia", "China", "Japan", "Bahrain", "Saudi Arabia", "Miami", "Emilia-Romagna", "Monaco",
     "Spain", "Canada", "Austria", "Great Britain", "Belgium", "Hungary", "Netherlands",
@@ -97,79 +97,113 @@ def calculate_total_points(weekend_points):
     
     return total_points
 
-def clear_all_database_entries(notion, database_id):
-    """Löscht ALLE Einträge aus der Database - komplett."""
+def get_data_source_id(database_id):
+    """Findet die Data Source ID innerhalb der Database."""
+    print("\n🔍 Suche Data Source in Database...")
+    
+    try:
+        # Direkte API-Anfrage um Data Sources zu finden
+        import httpx
+        headers = {
+            "Authorization": f"Bearer {NOTION_TOKEN}",
+            "Notion-Version": "2022-06-28",  # Verwende alte API-Version für Kompatibilität
+            "Content-Type": "application/json"
+        }
+        
+        # Versuche als Database zu querien (alte Methode funktioniert noch)
+        url = f"https://api.notion.com/v1/databases/{database_id}/query"
+        response = httpx.post(url, headers=headers, json={}, timeout=30.0)
+        
+        if response.status_code == 200:
+            print(f"✅ Database erreichbar (nutze Database ID direkt)")
+            return database_id
+        else:
+            print(f"⚠️ Status: {response.status_code}")
+            print(f"Response: {response.text}")
+            return database_id
+            
+    except Exception as e:
+        print(f"⚠️ Fehler: {e}")
+        return database_id
+
+def clear_all_entries(notion, db_id):
+    """Löscht ALLE Einträge aus der Database/Data Source."""
     print("\n" + "="*60)
     print("🗑️  LÖSCHE ALLE BESTEHENDEN EINTRÄGE")
     print("="*60)
     
     deleted_count = 0
+    
     try:
+        # Verwende direkte HTTP-Anfrage für bessere Kontrolle
+        import httpx
+        headers = {
+            "Authorization": f"Bearer {NOTION_TOKEN}",
+            "Notion-Version": "2022-06-28",
+            "Content-Type": "application/json"
+        }
+        
+        # Sammle alle Pages
+        all_pages = []
         has_more = True
         start_cursor = None
-        all_pages = []
         
-        # Schritt 1: Sammle alle Page-IDs mit korrekter API-Syntax
-        print("📋 Sammle alle Einträge...")
         while has_more:
-            # Korrekte Methode für notion-client Python Library
+            url = f"https://api.notion.com/v1/databases/{db_id}/query"
+            body = {"page_size": 100}
             if start_cursor:
-                response = notion.databases.query(
-                    database_id=database_id,
-                    start_cursor=start_cursor,
-                    page_size=100
-                )
+                body["start_cursor"] = start_cursor
+            
+            response = httpx.post(url, headers=headers, json=body, timeout=30.0)
+            
+            if response.status_code == 200:
+                data = response.json()
+                pages = data.get("results", [])
+                all_pages.extend(pages)
+                has_more = data.get("has_more", False)
+                start_cursor = data.get("next_cursor")
+                print(f"   Batch: {len(pages)} Einträge gefunden")
             else:
-                response = notion.databases.query(
-                    database_id=database_id,
-                    page_size=100
-                )
-            
-            pages = response.get("results", [])
-            all_pages.extend(pages)
-            
-            has_more = response.get("has_more", False)
-            start_cursor = response.get("next_cursor")
-            
-            print(f"   Batch: {len(pages)} Einträge gefunden")
+                print(f"❌ Query fehlgeschlagen: {response.status_code}")
+                print(f"Response: {response.text}")
+                break
         
-        print(f"📌 Insgesamt gefunden: {len(all_pages)} Einträge")
+        print(f"📌 Insgesamt: {len(all_pages)} Einträge gefunden")
         
-        # Schritt 2: Lösche alle gesammelten Pages mit archived=True
-        if len(all_pages) > 0:
+        # Lösche alle Pages
+        if all_pages:
             print("🔥 Beginne mit Archivieren...")
             for i, page in enumerate(all_pages, 1):
-                try:
-                    # Verwende archived=True (nicht in_trash)
-                    notion.pages.update(
-                        page_id=page["id"],
-                        archived=True
-                    )
+                page_id = page["id"]
+                
+                # Archiviere via API
+                update_url = f"https://api.notion.com/v1/pages/{page_id}"
+                update_body = {"archived": True}
+                
+                response = httpx.patch(update_url, headers=headers, json=update_body, timeout=30.0)
+                
+                if response.status_code == 200:
                     deleted_count += 1
                     if i % 5 == 0 or i == len(all_pages):
-                        print(f"   Archiviert: {i}/{len(all_pages)}")
-                except Exception as e:
-                    print(f"   ⚠️ Fehler bei Page {page['id']}: {e}")
-                    import traceback
-                    traceback.print_exc()
+                        print(f"   ✅ Archiviert: {i}/{len(all_pages)}")
+                else:
+                    print(f"   ⚠️ Fehler bei {page_id[:8]}: {response.status_code}")
             
-            print(f"\n✅ {deleted_count} Einträge erfolgreich archiviert!")
-            
-            # WICHTIG: Warte länger, damit Notion alle Löschungen verarbeitet
-            print("⏳ Warte 5 Sekunden auf Notion-Synchronisation...")
+            print(f"\n✅ {deleted_count} Einträge archiviert")
+            print("⏳ Warte 5 Sekunden...")
             time.sleep(5)
         else:
-            print("✅ Database ist bereits leer")
+            print("✅ Keine Einträge zum Löschen")
         
         return deleted_count
         
     except Exception as e:
-        print(f"❌ FEHLER beim Löschen: {e}")
+        print(f"❌ Fehler: {e}")
         import traceback
         traceback.print_exc()
         return deleted_count
 
-def update_database_properties(notion, database_id):
+def update_database_properties(notion, db_id):
     """Aktualisiert die Properties der Database."""
     print("\n" + "="*60)
     print("🔧 AKTUALISIERE DATABASE PROPERTIES")
@@ -184,14 +218,15 @@ def update_database_properties(notion, database_id):
         properties[location] = {"number": {}}
     
     try:
-        notion.databases.update(database_id=database_id, properties=properties)
+        notion.databases.update(database_id=db_id, properties=properties)
         print("✅ Properties aktualisiert")
+        time.sleep(2)
         return True
     except Exception as e:
-        print(f"⚠️ Warnung: {e}")
+        print(f"⚠️ Properties-Update: {e}")
         return False
 
-def create_driver_entries(notion, database_id, weekend_points, total_points):
+def create_driver_entries(notion, db_id, weekend_points, total_points):
     """Erstellt alle Fahrer-Einträge neu."""
     print("\n" + "="*60)
     print("📝 ERSTELLE NEUE FAHRER-EINTRÄGE")
@@ -217,7 +252,7 @@ def create_driver_entries(notion, database_id, weekend_points, total_points):
         
         try:
             notion.pages.create(
-                parent={"database_id": database_id},
+                parent={"database_id": db_id},
                 properties=driver_properties
             )
             created_count += 1
@@ -225,7 +260,7 @@ def create_driver_entries(notion, database_id, weekend_points, total_points):
         except Exception as e:
             print(f"❌ Fehler bei {driver}: {e}")
     
-    print(f"\n✅ {created_count} Fahrer erfolgreich eingetragen")
+    print(f"\n✅ {created_count} Fahrer eingetragen")
     return created_count
 
 def update_f1_data():
@@ -240,27 +275,29 @@ def update_f1_data():
         notion = Client(auth=NOTION_TOKEN)
         print("✅ Notion Client initialisiert")
         
-        # Hole Daten von der API
-        print("\n📡 Hole Daten von Jolpica API...")
+        # Hole F1-Daten
+        print("\n📡 Hole F1-Daten...")
         weekend_points = get_weekend_points()
         total_points = calculate_total_points(weekend_points)
         print(f"✅ Daten für {len(total_points)} Fahrer geladen")
         
-        # SCHRITT 1: Lösche ALLE bestehenden Einträge
-        deleted = clear_all_database_entries(notion, DATABASE_ID)
+        # Finde Data Source
+        data_source_id = get_data_source_id(DATABASE_ID)
         
-        # SCHRITT 2: Aktualisiere Properties
-        update_database_properties(notion, DATABASE_ID)
+        # Lösche alte Einträge
+        deleted = clear_all_entries(notion, data_source_id)
         
-        # SCHRITT 3: Erstelle neue Einträge
-        created = create_driver_entries(notion, DATABASE_ID, weekend_points, total_points)
+        # Aktualisiere Properties
+        update_database_properties(notion, data_source_id)
+        
+        # Erstelle neue Einträge
+        created = create_driver_entries(notion, data_source_id, weekend_points, total_points)
         
         # Zusammenfassung
         print("\n" + "="*60)
-        print("✅ UPDATE ERFOLGREICH ABGESCHLOSSEN!")
+        print("✅ UPDATE ERFOLGREICH!")
         print("="*60)
-        print(f"Gelöscht: {deleted} Einträge")
-        print(f"Erstellt: {created} Einträge")
+        print(f"Gelöscht: {deleted} | Erstellt: {created}")
         print("="*60)
         
         return True
