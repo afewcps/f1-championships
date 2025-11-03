@@ -173,50 +173,47 @@ def create_notion_database(weekend_points, total_points):
         print(f"⚠️ Warnung beim Properties-Update: {e}")
     
     # Lösche alle existierenden Einträge
+    print("🗑️ Lösche alte Einträge...")
+    deleted_count = 0
+    
     try:
-        print("🗑️ Lösche alte Einträge...")
-        
-        # Verwende die API direkt mit request
         has_more = True
         start_cursor = None
-        deleted_count = 0
         
         while has_more:
-            # Query Parameter vorbereiten
-            query_params = {
-                "database_id": database_id,
-                "page_size": 100
-            }
+            # Query mit korrekter Syntax
             if start_cursor:
-                query_params["start_cursor"] = start_cursor
+                response = notion.databases.query(
+                    **{"database_id": database_id, "start_cursor": start_cursor}
+                )
+            else:
+                response = notion.databases.query(
+                    **{"database_id": database_id}
+                )
             
-            # Direkte API-Anfrage
-            response = notion.request(
-                path=f"databases/{database_id}/query",
-                method="POST",
-                body={}
-            )
-            
-            results = response.get("results", [])
+            pages = response.get("results", [])
             has_more = response.get("has_more", False)
             start_cursor = response.get("next_cursor")
             
-            # Lösche jede Page
-            for page in results:
-                notion.pages.update(page_id=page["id"], archived=True)
-                deleted_count += 1
+            # Archiviere jede Page
+            for page in pages:
+                try:
+                    notion.pages.update(page_id=page["id"], archived=True)
+                    deleted_count += 1
+                    print(f"  Gelöscht: {page['id']}")
+                except Exception as e:
+                    print(f"  ⚠️ Konnte {page['id']} nicht löschen: {e}")
         
         print(f"✅ {deleted_count} alte Einträge gelöscht")
         
-        # Warte kurz, damit Notion die Löschungen verarbeitet
+        # Wichtig: Längere Wartezeit nach Löschung
         import time
-        time.sleep(1)
+        time.sleep(3)
             
     except Exception as e:
-        print(f"⚠️ Fehler beim Löschen alter Einträge: {e}")
+        print(f"❌ Fehler beim Löschen: {e}")
         import traceback
         traceback.print_exc()
-        print("Fahre trotzdem fort...")
     
     # Füge die Fahrer hinzu
     for driver in sorted_drivers:
