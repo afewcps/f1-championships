@@ -91,7 +91,8 @@ jobs:
 
       - name: Install dependencies (optional)
         run: |
-          pip install -r requirements.txt || true
+          # pip install -r requirements.txt || true
+          pip install notion-client requests httpx
 
       - name: Run database-script.py
         run: python database-script.py
