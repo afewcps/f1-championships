@@ -22,11 +22,10 @@ jobs:
         NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
       run: |
         echo "🏎️ Updating Results..."
-        python f1_session_results_ACTIONS 2026.py
+        python "f1_session_results_ACTIONS 2026.py"
     - name: Log completion
       if: success()
       run: echo "✅ Results updated at $(date)"
     - name: Log failure
       if: failure()
-      run: |
-        echo "❌ Drivers Championship update failed at $(date)"
+      run: echo "❌ Session Results update failed at $(date)"
