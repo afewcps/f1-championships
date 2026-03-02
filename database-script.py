@@ -70,8 +70,7 @@ def get_cumulative_points():
 def write_driver_chart_json(standings):
     chart_data = {
         "labels": RACE_LOCATIONS,
-        "series": [],
-        "backgroundColor": "#191919"
+        "series": []
     }
 
     for driver, points in standings.items():
