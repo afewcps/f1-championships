@@ -10,7 +10,7 @@ RACE_LOCATIONS = [
 ]
 
 # Jolpica API
-BASE_URL = "http://api.jolpi.ca/ergast/f1/current/"
+BASE_URL = "http://api.jolpi.ca/ergast/f1/2025/"   #speziell 2025er Saison
 
 # Teamfarben
 TEAM_COLORS = {
