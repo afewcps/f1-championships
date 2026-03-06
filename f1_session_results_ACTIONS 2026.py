@@ -27,7 +27,10 @@ RESULTS_DB_ID = "4c7a3557b9174b0d9cb21f7d9aff25d2"  # ← aus URL: notion.so/DIE
 DRIVERS_DB_ID = "3166839379ed8077ac10d568e95178c0"  # Drivers 2026
 
 # ID der "Weekends" Datenbank (enthält alle GP-Wochenenden)
-WEEKENDS_DB_ID = "3166839379ed8135b474d348837083bb"  # ← aus URL: notion.so/DIESE-ID
+WEEKENDS_DB_ID = "3166839379ed8135b474d348837083bb"
+
+# ID der "👥 Constructors Championship 2026" (Session Results → Team zeigt hierauf)
+CONSTRUCTORS_DB_ID = "3166839379ed81a18ff9c93850213783"
 
 # ─────────────────────────────────────────────
 # FastF1 Cache
@@ -188,8 +191,9 @@ def load_all_pages_from_db(db_id):
 
 def build_driver_map(drivers_db_id):
     """
-    Erstellt ein Dict: Fahrerkürzel → {"driver_id": page_id, "team_id": team_page_id|None}
-    Liest Abbreviation, Name und Team-Relation aus der Drivers-Datenbank.
+    Erstellt ein Dict: Fahrerkürzel → {"driver_id": page_id, "team_name": str|None}
+    team_name wird später gegen constructors_map aufgelöst um die korrekte
+    Constructors Championship 2026 Page-ID zu ermitteln.
     """
     print("📋 Lade Fahrer-Datenbank...")
     pages = load_all_pages_from_db(drivers_db_id)
@@ -205,20 +209,69 @@ def build_driver_map(drivers_db_id):
         name_list = props.get("Name", {}).get("title", [])
         name = name_list[0]["text"]["content"].strip() if name_list else ""
 
-        # Team-Relation: gibt Liste von {"id": page_id} zurück
+        # Team-Relation zeigt auf die separate Teams-DB (nicht Constructors Championship).
+        # Wir speichern die Teams-DB Page-ID hier NICHT – stattdessen wird der
+        # Teamname über build_teams_name_map() aufgelöst und dann gegen
+        # constructors_map gematcht. Die Teams-DB hat eine "Name"-Title-Property.
         team_relations = props.get("Team", {}).get("relation", [])
-        team_page_id = team_relations[0]["id"] if team_relations else None
+        teams_db_page_id = team_relations[0]["id"] if team_relations else None
 
         if abbr:
             driver_map[abbr] = {
-                "driver_id": page["id"],
-                "team_id":   team_page_id,
+                "driver_id":      page["id"],
+                "teams_db_id":    teams_db_page_id,  # ID in Teams-DB, wird extern aufgelöst
             }
-            team_info = team_page_id or "kein Team"
-            print(f"   ✔ {abbr} → {name} | Team-ID: {team_info}")
+            print(f"   ✔ {abbr} → {name}")
 
     print(f"✅ {len(driver_map)} Fahrer geladen")
     return driver_map
+
+
+def build_teams_name_map(teams_db_page_ids):
+    """
+    Lädt Teamnamen aus der Teams-DB für eine Liste von Page-IDs.
+    Gibt Dict zurück: teams_db_page_id → team_name (z.B. "McLaren")
+    """
+    teams_name_map = {}
+    for page_id in teams_db_page_ids:
+        if not page_id:
+            continue
+        try:
+            r = requests.get(
+                f"https://api.notion.com/v1/pages/{page_id}",
+                headers=HEADERS
+            )
+            r.raise_for_status()
+            page = r.json()
+            props = page.get("properties", {})
+            # Title-Property der Teams-DB heißt "Name"
+            name_list = props.get("Name", {}).get("title", [])
+            name = name_list[0]["text"]["content"].strip() if name_list else ""
+            if name:
+                teams_name_map[page_id] = name
+        except Exception as e:
+            print(f"   ⚠️ Konnte Team-Namen für {page_id} nicht laden: {e}")
+    return teams_name_map
+
+
+def build_constructors_map(constructors_db_id):
+    """
+    Erstellt ein Dict: Konstrukteurs-Name → Notion Page ID
+    aus der Constructors Championship 2026 Datenbank.
+    Die Title-Property heißt dort "Constructor".
+    """
+    print("📋 Lade Constructors Championship 2026 Datenbank...")
+    pages = load_all_pages_from_db(constructors_db_id)
+    constructors_map = {}
+    for page in pages:
+        props = page.get("properties", {})
+        name_list = props.get("Constructor", {}).get("title", [])
+        name = name_list[0]["text"]["content"].strip() if name_list else ""
+        if name:
+            constructors_map[name] = page["id"]
+            print(f"   ✔ {name} ({page['id']})")
+    print(f"✅ {len(constructors_map)} Konstrukteure geladen")
+    return constructors_map
 
 
 def build_weekend_map(weekends_db_id):
@@ -442,7 +495,10 @@ def get_session_results(year, gp_name, session_display_name):
 # =============================================================================
 
 def upsert_entry(results_db_id, driver_map, weekend_page_id,
-                 gp_name, session_display_name, driver_data):
+                 gp_name, session_display_name, driver_data,
+                 constructors_map=None, teams_name_map=None):
+    if constructors_map is None: constructors_map = {}
+    if teams_name_map is None: teams_name_map = {}
     """
     Erstellt oder aktualisiert einen einzelnen Fahrer-Eintrag in der Results-DB.
     Gibt True bei Erfolg zurück.
@@ -458,7 +514,10 @@ def upsert_entry(results_db_id, driver_map, weekend_page_id,
         return False
 
     driver_page_id = driver_entry["driver_id"]
-    team_page_id   = driver_entry["team_id"]
+    # team_page_id muss die ID aus Constructors Championship 2026 sein,
+    # weil Session Results → Team auf diese DB zeigt.
+    teams_db_id   = driver_entry.get("teams_db_id")
+    team_page_id  = constructors_map.get(teams_name_map.get(teams_db_id, ""), None)
 
     notion_session_type = SESSION_NOTION_TYPE.get(session_display_name, session_display_name)
 
@@ -524,7 +583,9 @@ def upsert_entry(results_db_id, driver_map, weekend_page_id,
 
 def process_session(year, gp_name, session_display_name,
                     results_db_id, driver_map, weekend_page_id,
-                    qualifying_positions=None):
+                    qualifying_positions=None, constructors_map=None, teams_name_map=None):
+    if constructors_map is None: constructors_map = {}
+    if teams_name_map is None: teams_name_map = {}
     """Verarbeitet eine komplette Session und schreibt alle Fahrer in Notion."""
     print(f"\n   ── {session_display_name} ──")
 
@@ -542,7 +603,9 @@ def process_session(year, gp_name, session_display_name,
     for driver_data in driver_results:
         ok = upsert_entry(
             results_db_id, driver_map, weekend_page_id,
-            gp_name, session_display_name, driver_data
+            gp_name, session_display_name, driver_data,
+            constructors_map=constructors_map,
+            teams_name_map=teams_name_map
         )
         if ok:
             success += 1
@@ -552,7 +615,10 @@ def process_session(year, gp_name, session_display_name,
 
 
 def process_race_weekend(year, gp_name, is_sprint_weekend,
-                         results_db_id, driver_map, weekend_map):
+                         results_db_id, driver_map, weekend_map,
+                         constructors_map=None, teams_name_map=None):
+    if constructors_map is None: constructors_map = {}
+    if teams_name_map is None: teams_name_map = {}
     """Verarbeitet alle Sessions eines Rennwochenendes."""
 
     print(f"\n{'='*60}")
@@ -579,7 +645,9 @@ def process_race_weekend(year, gp_name, is_sprint_weekend,
             n = process_session(
                 year, gp_name, session_display_name,
                 results_db_id, driver_map, weekend_page_id,
-                qualifying_positions=qualifying_positions
+                qualifying_positions=qualifying_positions,
+                constructors_map=constructors_map,
+                teams_name_map=teams_name_map
             )
             total_success += n
         except Exception as e:
@@ -665,10 +733,25 @@ def main():
         print("❌ Kein Rennwochenende ermittelt. Abbruch.")
         exit(1)
 
+    # ── Constructors Championship Map laden ───────────────────────────────
+    constructors_map = build_constructors_map(CONSTRUCTORS_DB_ID)
+    if not constructors_map:
+        print("⚠️  Constructors Championship 2026 ist leer – Team-Relation wird nicht gesetzt.")
+
+    # Teams-Namen aus der Teams-DB auflösen (einmalig für alle Fahrer) ──────
+    all_teams_db_ids = [v["teams_db_id"] for v in driver_map.values() if v.get("teams_db_id")]
+    teams_name_map = build_teams_name_map(all_teams_db_ids)
+    print(f"✅ {len(teams_name_map)} Team-Namen aufgelöst")
+    for tid, tname in teams_name_map.items():
+        constructor_id = constructors_map.get(tname, "❌ NICHT in Constructors Championship")
+        print(f"   {tname} → {constructor_id}")
+
     # ── Verarbeitung ───────────────────────────────────────────────────────
     success = process_race_weekend(
         year, gp_name, is_sprint,
-        RESULTS_DB_ID, driver_map, weekend_map
+        RESULTS_DB_ID, driver_map, weekend_map,
+        constructors_map=constructors_map,
+        teams_name_map=teams_name_map
     )
 
     if success:
