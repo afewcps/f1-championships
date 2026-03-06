@@ -23,8 +23,8 @@ if not NOTION_TOKEN:
 # → Öffne die DB in Notion, kopiere die ID aus der URL
 RESULTS_DB_ID = "4c7a3557b9174b0d9cb21f7d9aff25d2"  # ← aus URL: notion.so/DIESE-ID
 
-# ID der "🧑‍✈️ Drivers 2025" Datenbank (enthält alle Fahrer-Objekte)
-DRIVERS_DB_ID = "c153f04f61524e578a8077f87de542c0"  # ← aus URL: notion.so/DIESE-ID
+# ID der "👤 Drivers 2026" Datenbank (enthält alle Fahrer-Objekte)
+DRIVERS_DB_ID = "3166839379ed8077ac10d568e95178c0"  # Drivers 2026
 
 # ID der "Weekends" Datenbank (enthält alle GP-Wochenenden)
 WEEKENDS_DB_ID = "3166839379ed8135b474d348837083bb"  # ← aus URL: notion.so/DIESE-ID
@@ -188,23 +188,35 @@ def load_all_pages_from_db(db_id):
 
 def build_driver_map(drivers_db_id):
     """
-    Erstellt ein Dict: Fahrerkürzel (z.B. 'NOR') → Notion Page ID
-    Liest alle Einträge aus der Drivers-Datenbank.
+    Erstellt ein Dict: Fahrerkürzel → {"driver_id": page_id, "team_id": team_page_id|None}
+    Liest Abbreviation, Name und Team-Relation aus der Drivers-Datenbank.
     """
     print("📋 Lade Fahrer-Datenbank...")
     pages = load_all_pages_from_db(drivers_db_id)
     driver_map = {}
     for page in pages:
         props = page.get("properties", {})
+
         # Kürzel aus der "Abbreviation"-Property (Rich Text)
         abbr_list = props.get("Abbreviation", {}).get("rich_text", [])
         abbr = abbr_list[0]["text"]["content"].strip() if abbr_list else ""
-        # Name aus der Title-Property ("Name")
+
+        # Name aus der Title-Property
         name_list = props.get("Name", {}).get("title", [])
         name = name_list[0]["text"]["content"].strip() if name_list else ""
+
+        # Team-Relation: gibt Liste von {"id": page_id} zurück
+        team_relations = props.get("Team", {}).get("relation", [])
+        team_page_id = team_relations[0]["id"] if team_relations else None
+
         if abbr:
-            driver_map[abbr] = page["id"]
-            print(f"   ✔ {abbr} → {name} ({page['id']})")
+            driver_map[abbr] = {
+                "driver_id": page["id"],
+                "team_id":   team_page_id,
+            }
+            team_info = team_page_id or "kein Team"
+            print(f"   ✔ {abbr} → {name} | Team-ID: {team_info}")
+
     print(f"✅ {len(driver_map)} Fahrer geladen")
     return driver_map
 
@@ -440,10 +452,13 @@ def upsert_entry(results_db_id, driver_map, weekend_page_id,
     session_short = SESSION_SHORT_NAME.get(session_display_name, session_display_name)
     eintrag_title = f"{country_code} {session_short} – {abbr}"
 
-    driver_page_id = driver_map.get(abbr)
-    if not driver_page_id:
+    driver_entry = driver_map.get(abbr)
+    if not driver_entry:
         print(f"      ⚠️ Fahrer '{abbr}' nicht in Drivers-DB gefunden → Eintrag übersprungen")
         return False
+
+    driver_page_id = driver_entry["driver_id"]
+    team_page_id   = driver_entry["team_id"]
 
     notion_session_type = SESSION_NOTION_TYPE.get(session_display_name, session_display_name)
 
@@ -474,6 +489,12 @@ def upsert_entry(results_db_id, driver_map, weekend_page_id,
             "checkbox": driver_data["fastest_lap"]
         },
     }
+
+    # Team-Relation setzen wenn vorhanden
+    if team_page_id:
+        properties["Team"] = {"relation": [{"id": team_page_id}]}
+    else:
+        print(f"      ⚠️ Kein Team für Fahrer '{abbr}' in Drivers-DB hinterlegt")
 
     # Grid Position nur setzen wenn vorhanden
     if driver_data.get("grid_pos") is not None:
