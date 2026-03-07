@@ -292,24 +292,43 @@ def build_weekend_map(weekends_db_id):
     return weekend_map
 
 
-def find_existing_entry(results_db_id, eintrag_title):
+def load_existing_entries_for_weekend(results_db_id, weekend_page_id):
     """
-    Sucht in der Results-DB nach einem Eintrag mit exakt diesem Eintrag-Titel.
-    Gibt die Page-ID zurück, wenn gefunden, sonst None.
+    Lädt ALLE existierenden Einträge für ein Weekend in einer einzigen
+    paginierten Abfrage. Gibt Dict zurück: eintrag_title → page_id.
+    Ersetzt die alte find_existing_entry()-Einzelabfrage pro Fahrer.
     """
+    print("   📋 Lade existierende Einträge für dieses Weekend (Cache)...")
     payload = {
         "filter": {
-            "property": "Eintrag",
-            "title": {"equals": eintrag_title}
-        }
+            "property": "Weekend",
+            "relation": {"contains": weekend_page_id}
+        },
+        "page_size": 100
     }
-    result = notion_post(
-        f"https://api.notion.com/v1/databases/{results_db_id}/query", payload
-    )
-    results = result.get("results", [])
-    if results:
-        return results[0]["id"]
-    return None
+    pages = []
+    cursor = None
+    while True:
+        if cursor:
+            payload["start_cursor"] = cursor
+        result = notion_post(
+            f"https://api.notion.com/v1/databases/{results_db_id}/query", payload
+        )
+        pages.extend(result.get("results", []))
+        if not result.get("has_more"):
+            break
+        cursor = result.get("next_cursor")
+        payload.pop("start_cursor", None)
+
+    cache = {}
+    for page in pages:
+        title_list = page.get("properties", {}).get("Eintrag", {}).get("title", [])
+        title = title_list[0]["text"]["content"] if title_list else ""
+        if title:
+            cache[title] = page["id"]
+
+    print(f"   ✅ {len(cache)} existierende Einträge gecacht")
+    return cache
 
 
 # =============================================================================
@@ -370,6 +389,28 @@ def get_session_results(year, gp_name, session_display_name):
     except Exception as e:
         print(f"   ⚠️ Konnte Session nicht laden: {e}")
         return None
+
+    # ── Prüfen ob Session bereits stattgefunden hat ────────────────────────
+    # FastF1 gibt für zukünftige Sessions manchmal Placeholder-Daten zurück
+    # (Positionen 1-20 ohne echte Zeiten). Daher: Datum-Check als Gate.
+    try:
+        session_date = session.date
+        now = datetime.now(tz=session_date.tzinfo) if session_date.tzinfo else datetime.now()
+        if session_date > now:
+            print(f"   ⏳ Session liegt in der Zukunft ({session_date.date()}) → übersprungen")
+            return None
+    except Exception as e:
+        print(f"   ⚠️ Konnte Session-Datum nicht prüfen: {e} – fahre fort")
+
+    # Für Qualifying/Sprint Qualifying zusätzlich prüfen ob echte Zeiten vorliegen
+    if session_display_name in ("Qualifying", "Sprint Qualifying"):
+        try:
+            q1_times = session.results.get("Q1", None)
+            if q1_times is not None and q1_times.isna().all():
+                print(f"   ⏳ Qualifying hat noch keine Zeitdaten → übersprungen")
+                return None
+        except Exception:
+            pass
 
     results_df = session.results.copy()
 
@@ -496,9 +537,10 @@ def get_session_results(year, gp_name, session_display_name):
 
 def upsert_entry(results_db_id, driver_map, weekend_page_id,
                  gp_name, session_display_name, driver_data,
-                 constructors_map=None, teams_name_map=None):
+                 constructors_map=None, teams_name_map=None, existing_cache=None):
     if constructors_map is None: constructors_map = {}
     if teams_name_map is None: teams_name_map = {}
+    if existing_cache is None: existing_cache = {}
     """
     Erstellt oder aktualisiert einen einzelnen Fahrer-Eintrag in der Results-DB.
     Gibt True bei Erfolg zurück.
@@ -559,8 +601,8 @@ def upsert_entry(results_db_id, driver_map, weekend_page_id,
     if driver_data.get("grid_pos") is not None:
         properties["Grid Position"] = {"number": driver_data["grid_pos"]}
 
-    # Prüfen ob Eintrag schon existiert (Upsert)
-    existing_id = find_existing_entry(results_db_id, eintrag_title)
+    # Upsert: Cache-Lookup statt einzelner API-Abfrage
+    existing_id = existing_cache.get(eintrag_title)
 
     try:
         if existing_id:
@@ -583,9 +625,11 @@ def upsert_entry(results_db_id, driver_map, weekend_page_id,
 
 def process_session(year, gp_name, session_display_name,
                     results_db_id, driver_map, weekend_page_id,
-                    qualifying_positions=None, constructors_map=None, teams_name_map=None):
+                    qualifying_positions=None, constructors_map=None, teams_name_map=None,
+                    existing_cache=None):
     if constructors_map is None: constructors_map = {}
     if teams_name_map is None: teams_name_map = {}
+    if existing_cache is None: existing_cache = {}
     """Verarbeitet eine komplette Session und schreibt alle Fahrer in Notion."""
     print(f"\n   ── {session_display_name} ──")
 
@@ -605,7 +649,8 @@ def process_session(year, gp_name, session_display_name,
             results_db_id, driver_map, weekend_page_id,
             gp_name, session_display_name, driver_data,
             constructors_map=constructors_map,
-            teams_name_map=teams_name_map
+            teams_name_map=teams_name_map,
+            existing_cache=existing_cache
         )
         if ok:
             success += 1
@@ -636,6 +681,9 @@ def process_race_weekend(year, gp_name, is_sprint_weekend,
     # Qualifying-Positionen vorab laden (für Grid Position beim Race)
     qualifying_positions = get_qualifying_positions(year, gp_name)
 
+    # Existierende Einträge einmal vorladen (Fix 1: ersetzt 110 Einzelabfragen)
+    existing_cache = load_existing_entries_for_weekend(results_db_id, weekend_page_id)
+
     # Sessions des Wochenendes
     sessions = SPRINT_SESSIONS if is_sprint_weekend else NORMAL_SESSIONS
     total_success = 0
@@ -647,7 +695,8 @@ def process_race_weekend(year, gp_name, is_sprint_weekend,
                 results_db_id, driver_map, weekend_page_id,
                 qualifying_positions=qualifying_positions,
                 constructors_map=constructors_map,
-                teams_name_map=teams_name_map
+                teams_name_map=teams_name_map,
+                existing_cache=existing_cache
             )
             total_success += n
         except Exception as e:
