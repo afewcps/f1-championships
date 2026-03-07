@@ -82,30 +82,60 @@ F1_2026_CALENDAR = [
 
 # Länderkürzel für das Eintrag-Muster (z.B. "AUS Race – NOR")
 GP_COUNTRY_CODE = {
-    "Australian Grand Prix":    "AUS",
-    "Chinese Grand Prix":       "CHN",
-    "Japanese Grand Prix":      "JPN",
-    "Bahrain Grand Prix":       "BHR",
-    "Saudi Arabian Grand Prix": "SAU",
-    "Miami Grand Prix":         "MIA",
-    "Canadian Grand Prix":      "CAN",
-    "Monaco Grand Prix":        "MON",
-    "Barcelona-Catalunya Grand Prix": "BAR",
-    "Austrian Grand Prix":      "AUT",
-    "British Grand Prix":       "GBR",
-    "Belgian Grand Prix":       "BEL",
-    "Hungarian Grand Prix":     "HUN",
-    "Dutch Grand Prix":         "NED",
-    "Italian Grand Prix":       "ITA",
-    "Spanish Grand Prix":       "ESP",
-    "Azerbaijan Grand Prix":    "AZE",
-    "Singapore Grand Prix":     "SGP",
-    "United States Grand Prix": "USA",
-    "Mexican Grand Prix":       "MEX",
-    "Brazilian Grand Prix":     "BRA",
-    "Las Vegas Grand Prix":     "LVG",
-    "Qatar Grand Prix":         "QAT",
-    "Abu Dhabi Grand Prix":     "UAE",
+    "Australian Grand Prix":         "AUS",
+    "Chinese Grand Prix":            "CHN",
+    "Japanese Grand Prix":           "JPN",
+    "Bahrain Grand Prix":            "BHR",
+    "Saudi Arabian Grand Prix":      "SAU",
+    "Miami Grand Prix":              "MIA",
+    "Canadian Grand Prix":           "CAN",
+    "Monaco Grand Prix":             "MON",
+    "Barcelona-Catalunya Grand Prix":"BAR",
+    "Austrian Grand Prix":           "AUT",
+    "British Grand Prix":            "GBR",
+    "Belgian Grand Prix":            "BEL",
+    "Hungarian Grand Prix":          "HUN",
+    "Dutch Grand Prix":              "NED",
+    "Italian Grand Prix":            "ITA",
+    "Spanish Grand Prix":            "ESP",
+    "Azerbaijan Grand Prix":         "AZE",
+    "Singapore Grand Prix":          "SGP",
+    "United States Grand Prix":      "USA",
+    "Mexican Grand Prix":            "MEX",
+    "Brazilian Grand Prix":          "BRA",
+    "Las Vegas Grand Prix":          "LVG",
+    "Qatar Grand Prix":              "QAT",
+    "Abu Dhabi Grand Prix":          "UAE",
+}
+
+# Mapping FastF1-Name → Name in der Weekends-Datenbank
+# FastF1 nutzt "Australian Grand Prix", die Weekends-DB speichert nur "Australia" etc.
+# Ausnahmen: Miami, Barcelona, Las Vegas, Abu Dhabi (Stadtname statt Land)
+GP_WEEKEND_NAME = {
+    "Australian Grand Prix":         "Australia",
+    "Chinese Grand Prix":            "China",
+    "Japanese Grand Prix":           "Japan",
+    "Bahrain Grand Prix":            "Bahrain",
+    "Saudi Arabian Grand Prix":      "Saudi Arabia",
+    "Miami Grand Prix":              "Miami",
+    "Canadian Grand Prix":           "Canada",
+    "Monaco Grand Prix":             "Monaco",
+    "Barcelona-Catalunya Grand Prix":"Barcelona",
+    "Austrian Grand Prix":           "Austria",
+    "British Grand Prix":            "Great Britain",
+    "Belgian Grand Prix":            "Belgium",
+    "Hungarian Grand Prix":          "Hungary",
+    "Dutch Grand Prix":              "Netherlands",
+    "Italian Grand Prix":            "Italy",
+    "Spanish Grand Prix":            "Spain",
+    "Azerbaijan Grand Prix":         "Azerbaijan",
+    "Singapore Grand Prix":          "Singapore",
+    "United States Grand Prix":      "United States",
+    "Mexican Grand Prix":            "Mexico",
+    "Brazilian Grand Prix":          "Brazil",
+    "Las Vegas Grand Prix":          "Las Vegas",
+    "Qatar Grand Prix":              "Qatar",
+    "Abu Dhabi Grand Prix":          "Abu Dhabi",
 }
 
 # Kurzname des Session-Typs für den Eintrag-Titel
@@ -216,12 +246,17 @@ def build_driver_map(drivers_db_id):
         team_relations = props.get("Team", {}).get("relation", [])
         teams_db_page_id = team_relations[0]["id"] if team_relations else None
 
+        # Startnummer (für Sortierung no-time-Fahrer im Qualifying)
+        car_number_raw = props.get("Number", {}).get("number", None)
+        car_number = int(car_number_raw) if car_number_raw is not None else 99
+
         if abbr:
             driver_map[abbr] = {
                 "driver_id":      page["id"],
-                "teams_db_id":    teams_db_page_id,  # ID in Teams-DB, wird extern aufgelöst
+                "teams_db_id":    teams_db_page_id,
+                "number":         car_number,
             }
-            print(f"   ✔ {abbr} → {name}")
+            print(f"   ✔ {abbr} → {name} (#{car_number})")
 
     print(f"✅ {len(driver_map)} Fahrer geladen")
     return driver_map
@@ -507,25 +542,79 @@ def get_session_results(year, gp_name, session_display_name):
                 })
 
         else:
-            # Qualifying oder Sprint Qualifying:
-            # Verwende session.results – Position ist bereits offiziell gesetzt
+            # ── Qualifying / Sprint Qualifying ────────────────────────────────
+            # session.results enthält alle Fahrer, auch solche ohne Zeit (NaN).
+            # Fahrer MIT Zeit → offizielle Position aus session.results
+            # Fahrer OHNE Zeit → werden nach Startnummer aufsteigend angehängt
+            #                    (wie FIA-Klassifikation bei Zeitstrafen/kein Versuch)
+
+            timed_drivers   = []
+            no_time_drivers = []
+
+            all_fastf1_abbrs = set()  # Debug: alle FastF1-Kürzel loggen
+
             for _, row in results_df.iterrows():
                 abbr = str(row.get("Abbreviation", "")).strip()
+                if not abbr:
+                    continue
+                all_fastf1_abbrs.add(abbr)
+
                 pos_raw = row.get("Position", None)
                 try:
                     position = int(float(pos_raw))
+                    has_position = True
                 except (TypeError, ValueError):
                     position = None
+                    has_position = False
 
-                if abbr and position:
-                    driver_results.append({
-                        "abbreviation": abbr,
-                        "position":     position,
-                        "dnf":          False,
-                        "fastest_lap":  False,
-                        "points":       0,
-                        "grid_pos":     None,
-                    })
+                # Startnummer aus FastF1 als Fallback falls Fahrer nicht in driver_map
+                ff1_number_raw = row.get("DriverNumber", None)
+                try:
+                    ff1_number = int(float(ff1_number_raw)) if ff1_number_raw is not None else 99
+                except (TypeError, ValueError):
+                    ff1_number = 99
+
+                entry = {
+                    "abbreviation": abbr,
+                    "position":     position,
+                    "dnf":          False,
+                    "fastest_lap":  False,
+                    "points":       0,
+                    "grid_pos":     None,
+                    "_ff1_number":  ff1_number,  # intern für Sortierung, wird nicht nach Notion geschrieben
+                }
+
+                if has_position:
+                    timed_drivers.append(entry)
+                else:
+                    no_time_drivers.append(entry)
+
+            # Debug: Kürzel die nicht in driver_map sind
+            unknown = all_fastf1_abbrs - set(driver_map.keys())
+            if unknown:
+                print(f"   ⚠️  FastF1-Kürzel nicht in Drivers-DB: {sorted(unknown)}")
+                print(f"      → Diese Fahrer werden übersprungen (Notion-Eintrag nicht möglich)")
+
+            # Timed: nach offizieller Position sortieren
+            timed_drivers.sort(key=lambda d: d["position"])
+
+            # No-time: nach Startnummer sortieren (driver_map hat aktuelle Nummer,
+            # FastF1 DriverNumber als Fallback)
+            def get_sort_number(d):
+                abbr = d["abbreviation"]
+                if abbr in driver_map:
+                    return driver_map[abbr].get("number", 99)
+                return d["_ff1_number"]
+
+            no_time_drivers.sort(key=get_sort_number)
+
+            # Positionen der no-time-Fahrer: fortlaufend nach den timed-Fahrern
+            last_timed_pos = timed_drivers[-1]["position"] if timed_drivers else 0
+            for i, d in enumerate(no_time_drivers, 1):
+                d["position"] = last_timed_pos + i
+
+            driver_results = timed_drivers + no_time_drivers
+            print(f"   📊 {len(timed_drivers)} mit Zeit, {len(no_time_drivers)} ohne Zeit (hinten eingereiht)")
 
     print(f"   ✅ {len(driver_results)} Fahrer-Ergebnisse geladen")
     return driver_results
@@ -672,9 +761,12 @@ def process_race_weekend(year, gp_name, is_sprint_weekend,
     print(f"{'='*60}")
 
     # Weekend-Seite in Notion suchen
-    weekend_page_id = weekend_map.get(gp_name)
+    # Weekends-DB nutzt Ländernamen (z.B. "Australia"), nicht FastF1-Namen ("Australian Grand Prix")
+    weekend_db_name = GP_WEEKEND_NAME.get(gp_name, gp_name)
+    weekend_page_id = weekend_map.get(weekend_db_name)
     if not weekend_page_id:
-        print(f"❌ '{gp_name}' nicht in Weekends-DB gefunden!")
+        print(f"❌ '{weekend_db_name}' nicht in Weekends-DB gefunden!")
+        print(f"   FastF1-Name: '{gp_name}'")
         print(f"   Verfügbare Wochenenden: {list(weekend_map.keys())}")
         return False
 
