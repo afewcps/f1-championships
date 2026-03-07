@@ -555,14 +555,10 @@ def get_session_results(year, gp_name, session_display_name):
             timed_drivers   = []
             no_time_drivers = []
 
-            all_fastf1_abbrs = set()  # Debug: alle FastF1-Kürzel loggen
-
             for _, row in results_df.iterrows():
                 abbr = str(row.get("Abbreviation", "")).strip()
                 if not abbr:
                     continue
-                all_fastf1_abbrs.add(abbr)
-
                 pos_raw = row.get("Position", None)
                 try:
                     position = int(float(pos_raw))
@@ -593,24 +589,12 @@ def get_session_results(year, gp_name, session_display_name):
                 else:
                     no_time_drivers.append(entry)
 
-            # Debug: Kürzel die nicht in driver_map sind
-            unknown = all_fastf1_abbrs - set(driver_map.keys())
-            if unknown:
-                print(f"   ⚠️  FastF1-Kürzel nicht in Drivers-DB: {sorted(unknown)}")
-                print(f"      → Diese Fahrer werden übersprungen (Notion-Eintrag nicht möglich)")
-
             # Timed: nach offizieller Position sortieren
             timed_drivers.sort(key=lambda d: d["position"])
 
-            # No-time: nach Startnummer sortieren (driver_map hat aktuelle Nummer,
-            # FastF1 DriverNumber als Fallback)
-            def get_sort_number(d):
-                abbr = d["abbreviation"]
-                if abbr in driver_map:
-                    return driver_map[abbr].get("number", 99)
-                return d["_ff1_number"]
-
-            no_time_drivers.sort(key=get_sort_number)
+            # No-time: nach FastF1 DriverNumber sortieren (driver_map hier nicht verfügbar)
+            # process_session() überschreibt diese Positionen später mit driver_map-Nummern
+            no_time_drivers.sort(key=lambda d: d["_ff1_number"])
 
             # Positionen der no-time-Fahrer: fortlaufend nach den timed-Fahrern
             last_timed_pos = timed_drivers[-1]["position"] if timed_drivers else 0
