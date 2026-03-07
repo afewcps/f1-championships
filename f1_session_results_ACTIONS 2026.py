@@ -426,12 +426,15 @@ def get_session_results(year, gp_name, session_display_name):
         return None
 
     # ── Prüfen ob Session bereits stattgefunden hat ────────────────────────
-    # FastF1 gibt für zukünftige Sessions manchmal Placeholder-Daten zurück
-    # (Positionen 1-20 ohne echte Zeiten). Daher: Datum-Check als Gate.
+    # session.date kann tz-aware oder tz-naive sein – wir normalisieren auf UTC.
     try:
-        session_date = session.date
-        now = datetime.now(tz=session_date.tzinfo) if session_date.tzinfo else datetime.now()
-        if session_date > now:
+        session_date = pd.Timestamp(session.date)
+        if session_date.tzinfo is not None:
+            session_date_utc = session_date.tz_convert("UTC")
+        else:
+            session_date_utc = session_date.tz_localize("UTC")
+        now_utc = pd.Timestamp.now(tz="UTC")
+        if session_date_utc > now_utc:
             print(f"   ⏳ Session liegt in der Zukunft ({session_date.date()}) → übersprungen")
             return None
     except Exception as e:
@@ -440,8 +443,8 @@ def get_session_results(year, gp_name, session_display_name):
     # Für Qualifying/Sprint Qualifying zusätzlich prüfen ob echte Zeiten vorliegen
     if session_display_name in ("Qualifying", "Sprint Qualifying"):
         try:
-            q1_times = session.results.get("Q1", None)
-            if q1_times is not None and q1_times.isna().all():
+            q1_col = session.results.get("Q1", None)
+            if q1_col is not None and pd.isna(q1_col).all():
                 print(f"   ⏳ Qualifying hat noch keine Zeitdaten → übersprungen")
                 return None
         except Exception:
@@ -517,29 +520,51 @@ def get_session_results(year, gp_name, session_display_name):
         # werden anhand ihrer besten Zeit aus dem jeweils letzten Segment eingeordnet.
         # FastF1's session.results hat dafür die Spalten Q1Time, Q2Time, Q3Time.
 
-        # Für FP: einfach nach schnellster Runde sortieren
+        # Für FP: nach schnellster Runde sortieren, Fahrer ohne Runde hinten
         if session_display_name in ("Practice 1", "Practice 2", "Practice 3"):
             laps = session.laps
-            if laps.empty:
-                print("   ⚠️ Keine Runden-Daten")
-                return None
-            fastest = (
-                laps.groupby("Driver")["LapTime"]
-                .min()
-                .dropna()
-                .reset_index()
-                .sort_values("LapTime")
-                .reset_index(drop=True)
-            )
-            for rank, row in enumerate(fastest.itertuples(), 1):
+
+            timed_abbrs = set()
+            if not laps.empty:
+                fastest = (
+                    laps.groupby("Driver")["LapTime"]
+                    .min()
+                    .dropna()
+                    .reset_index()
+                    .sort_values("LapTime")
+                    .reset_index(drop=True)
+                )
+                for rank, row in enumerate(fastest.itertuples(), 1):
+                    driver_results.append({
+                        "abbreviation": row.Driver,
+                        "position":     rank,
+                        "dnf":          False,
+                        "fastest_lap":  False,
+                        "points":       0,
+                        "grid_pos":     None,
+                    })
+                    timed_abbrs.add(row.Driver)
+
+            # Fahrer ohne Runde: aus driver_map holen, nach Startnummer sortieren
+            no_lap_drivers = [
+                (abbr, info["number"])
+                for abbr, info in driver_map.items()
+                if abbr not in timed_abbrs
+            ]
+            no_lap_drivers.sort(key=lambda x: x[1])
+            last_pos = len(timed_abbrs)
+            for i, (abbr, _) in enumerate(no_lap_drivers, 1):
                 driver_results.append({
-                    "abbreviation": row.Driver,
-                    "position":     rank,
+                    "abbreviation": abbr,
+                    "position":     last_pos + i,
                     "dnf":          False,
                     "fastest_lap":  False,
                     "points":       0,
                     "grid_pos":     None,
                 })
+            if no_lap_drivers:
+                print(f"   📋 {len(no_lap_drivers)} Fahrer ohne Runde hinten eingereiht: "
+                      f"{[a for a, _ in no_lap_drivers]}")
 
         else:
             # ── Qualifying / Sprint Qualifying ────────────────────────────────
