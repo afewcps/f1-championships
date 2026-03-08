@@ -54,7 +54,7 @@
         0,
         0
       ],
-      "color": "#4570C0"
+      "color": "#3570c5"
     },
     {
       "title": "Isack Hadjar",
@@ -84,7 +84,7 @@
         0,
         0
       ],
-      "color": "#4570C0"
+      "color": "#3570c5"
     },
     {
       "title": "George Russell",
@@ -114,7 +114,7 @@
         0,
         0
       ],
-      "color": "#75F1D3"
+      "color": "#42f4d7"
     },
     {
       "title": "Andrea Kimi Antonelli",
@@ -144,7 +144,7 @@
         0,
         0
       ],
-      "color": "#75F1D3"
+      "color": "#42f4d7"
     },
     {
       "title": "Charles Leclerc",
@@ -174,7 +174,7 @@
         0,
         0
       ],
-      "color": "#D52E37"
+      "color": "#e8002d"
     },
     {
       "title": "Lewis Hamilton",
@@ -204,7 +204,7 @@
         0,
         0
       ],
-      "color": "#D52E37"
+      "color": "#e8002d"
     },
     {
       "title": "Lando Norris",
@@ -234,7 +234,7 @@
         0,
         0
       ],
-      "color": "#ef8733"
+      "color": "#ff8102"
     },
     {
       "title": "Oscar Piastri",
@@ -264,7 +264,7 @@
         0,
         0
       ],
-      "color": "#ef8733"
+      "color": "#ff8102"
     },
     {
       "title": "Fernando Alonso",
@@ -294,7 +294,7 @@
         0,
         0
       ],
-      "color": "#4B9774"
+      "color": "#20956e"
     },
     {
       "title": "Lance Stroll",
@@ -324,7 +324,7 @@
         0,
         0
       ],
-      "color": "#4B9774"
+      "color": "#20956e"
     },
     {
       "title": "Alexander Albon",
@@ -354,7 +354,7 @@
         0,
         0
       ],
-      "color": "#3267D4"
+      "color": "#1868db"
     },
     {
       "title": "Carlos Sainz",
@@ -384,7 +384,7 @@
         0,
         0
       ],
-      "color": "#3267D4"
+      "color": "#1868db"
     },
     {
       "title": "Pierre Gasly",
@@ -414,7 +414,7 @@
         0,
         0
       ],
-      "color": "#479FE2"
+      "color": "#00a1e8"
     },
     {
       "title": "Franco Colapinto",
@@ -444,7 +444,7 @@
         0,
         0
       ],
-      "color": "#479FE2"
+      "color": "#00a1e8"
     },
     {
       "title": "Liam Lawson",
@@ -474,7 +474,7 @@
         0,
         0
       ],
-      "color": "#7091f8"
+      "color": "#6692ff"
     },
     {
       "title": "Arvid Lindblad",
@@ -504,7 +504,7 @@
         0,
         0
       ],
-      "color": "#7091f8"
+      "color": "#6692ff"
     },
     {
       "title": "Esteban Ocon",
@@ -534,7 +534,7 @@
         0,
         0
       ],
-      "color": "#DFE1E2"
+      "color": "#dee1e2"
     },
     {
       "title": "Oliver Bearman",
@@ -564,7 +564,7 @@
         0,
         0
       ],
-      "color": "#DFE1E2"
+      "color": "#dee1e2"
     },
     {
       "title": "Nico Hülkenberg",
@@ -594,7 +594,7 @@
         0,
         0
       ],
-      "color": "#EB4526"
+      "color": "#ff2d00"
     },
     {
       "title": "Gabriel Bortoleto",
@@ -624,7 +624,7 @@
         0,
         0
       ],
-      "color": "#EB4526"
+      "color": "#ff2d00"
     },
     {
       "title": "Sergio Perez",
@@ -654,7 +654,7 @@
         0,
         0
       ],
-      "color": "#AAAADD"
+      "color": "#aaaaad"
     },
     {
       "title": "Valtteri Bottas",
@@ -684,7 +684,7 @@
         0,
         0
       ],
-      "color": "#AAAADD"
+      "color": "#aaaaad"
     }
   ],
   "backgroundColor": "#191919"
