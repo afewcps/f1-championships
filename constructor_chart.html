@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Constructors Championship Chart</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      margin: 0;
+      background-color: #191919;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="chart"></canvas>
+  <script>
+    console.log("🚀 Lade constructor_chart.json...");
+    fetch("constructor_chart.json")
+      .then(response => {
+        if (!response.ok) throw new Error("Datei nicht gefunden!");
+        return response.json();
+      })
+      .then(data => {
+        console.log("✅ JSON geladen:", data);
+
+        const allPoints = data.series.flatMap(s => s.data);
+        const minY = Math.min(...allPoints);
+        const maxY = Math.max(...allPoints);
+
+        const ctx = document.getElementById('chart').getContext('2d');
+        const chart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: data.labels,
+            datasets: data.series.map(team => ({
+              label: team.title,
+              data: team.data,
+              borderColor: team.color,
+              fill: false,
+              tension: 0.4,
+              pointRadius: 2,
+              borderWidth: 2
+            }))
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: {
+                labels: {
+                  color: '#ffffff',
+                  font: {
+                    size: 14,
+                    family: 'Arial'
+                  }
+                }
+              },
+              tooltip: {
+                mode: 'nearest',
+                intersect: true,
+                backgroundColor: '#222',
+                titleColor: '#fff',
+                bodyColor: '#ccc'
+              }
+            },
+            scales: {
+              x: {
+                ticks: {
+                  color: '#aaa',
+                  maxRotation: 45,
+                  minRotation: 0
+                },
+                grid: {
+                  color: '#333'
+                }
+              },
+              y: {
+                beginAtZero: false,
+                suggestedMin: minY,
+                suggestedMax: maxY + 5,
+                ticks: {
+                  color: '#aaa'
+                },
+                grid: {
+                  color: '#333'
+                }
+              }
+            }
+          }
+        });
+      })
+      .catch(error => {
+        console.error("❌ Fehler beim Laden der Chart-Daten:", error);
+      });
+  </script>
+</body>
+</html>
