@@ -1,17 +1,13 @@
 import requests
 import os
-import time
 from notion_client import Client
+import httpx
 
 # F1 Drivers Championship Notion Updater für GitHub Actions – Saison 2026
 
-# Notion API Setup
 NOTION_TOKEN = os.getenv("NOTION_TOKEN")
-DATABASE_ID = "3166839379ed81f8bc7dc0999f1f8e6d"  # Drivers Championship 2026
+DATABASE_ID  = "3166839379ed81f8bc7dc0999f1f8e6d"  # Drivers Championship 2026
 
-# Rennkalender 2026 (24 Rennen)
-# Spain (Runde 16) = Gran Premio de España → Madrid
-# Barcelona (Runde 9) = Gran Premio de Barcelona-Catalunya
 RACE_LOCATIONS = [
     "Australia", "China", "Japan", "Bahrain", "Saudi Arabia", "Miami",
     "Canada", "Monaco", "Barcelona", "Austria", "Great Britain", "Belgium",
@@ -19,136 +15,175 @@ RACE_LOCATIONS = [
     "United States", "Mexico", "Brazil", "Las Vegas", "Qatar", "Abu Dhabi"
 ]
 
-# Jolpica-API-Link
 BASE_URL = "http://api.jolpi.ca/ergast/f1/current/"
 
-# Team-Farben für Visualisierungen – Saison 2026
+# Mapping: API-Name → Notion-Anzeigename
+# Die API liefert z.B. "Andrea Kimi Antonelli", in Notion heißt der Eintrag aber "Kimi Antonelli".
+API_TO_NOTION_NAME = {
+    "Andrea Kimi Antonelli": "Kimi Antonelli",
+}
+
+# Mapping: Notion-Anzeigename → Seiten-ID im "Drivers 2026" DB
+# Wird für die "Driver"-Relation in der Drivers Championship 2026 DB benötigt.
+DRIVER_PAGE_IDS = {
+    "Max Verstappen":   "3166839379ed81f3b6f5cf5864abdcba",
+    "Isack Hadjar":     "3166839379ed8153acedd2bed8ed3c5e",
+    "George Russell":   "3166839379ed81499980c7fde7c353e9",
+    "Kimi Antonelli":   "3166839379ed814695edceee97561ad0",
+    "Charles Leclerc":  "3166839379ed81049f8aca1b3fbb5c2e",
+    "Lewis Hamilton":   "3166839379ed81b39fbfc668967b43ca",
+    "Lando Norris":     "3166839379ed8159a2dccc7dd76ba669",
+    "Oscar Piastri":    "3166839379ed81a48c4bccd923a59d12",
+    "Fernando Alonso":  "3166839379ed8111856dca4832af4816",
+    "Lance Stroll":     "3166839379ed81f28f6be9c75c6d86b9",
+    "Alexander Albon":  "3166839379ed81d78a12e2564f90c3b9",
+    "Carlos Sainz":     "3166839379ed81a3a73bf3a63e6505d6",
+    "Pierre Gasly":     "3166839379ed81f6be7bd54256fb4096",
+    "Franco Colapinto": "3186839379ed80ebbef3ce6d9d66cf7e",
+    "Liam Lawson":      "3166839379ed81179562f8bb3d7ea15a",
+    "Arvid Lindblad":   "3186839379ed80d08be1c9359498ac59",
+    "Esteban Ocon":     "3166839379ed81eaa7a1d971704c679a",
+    "Oliver Bearman":   "3166839379ed81488937d5a06740ae28",
+    "Nico Hülkenberg":  "3166839379ed81be895df1bb7cd0fa40",
+    "Gabriel Bortoleto":"3166839379ed81659d63ca189da1b672",
+    "Sergio Perez":     "3186839379ed8095acdbe00d33cbfa35",
+    "Valtteri Bottas":  "3186839379ed801693e1d191cca36300",
+}
+
 TEAM_COLORS = {
-    "Max Verstappen": "#0600EF",        # Red Bull
-    "Isack Hadjar": "#0600EF",          # Red Bull
-    "George Russell": "#00D2BE",        # Mercedes
-    "Andrea Kimi Antonelli": "#00D2BE", # Mercedes
-    "Charles Leclerc": "#DC0000",       # Ferrari
-    "Lewis Hamilton": "#DC0000",        # Ferrari
-    "Lando Norris": "#FF8700",          # McLaren
-    "Oscar Piastri": "#FF8700",         # McLaren
-    "Fernando Alonso": "#006F62",       # Aston Martin
-    "Lance Stroll": "#006F62",          # Aston Martin
-    "Alexander Albon": "#005AFF",       # Williams
-    "Carlos Sainz": "#005AFF",          # Williams
-    "Pierre Gasly": "#0090FF",          # Alpine
-    "Franco Colapinto": "#0090FF",      # Alpine
-    "Liam Lawson": "#0131d1",           # Racing Bulls
-    "Arvid Lindblad": "#0131d1",        # Racing Bulls
-    "Esteban Ocon": "#FFFFFF",          # Haas
-    "Oliver Bearman": "#FFFFFF",        # Haas
-    "Nico Hülkenberg": "#00e701",       # Audi (ex Sauber)
-    "Gabriel Bortoleto": "#00e701",     # Audi (ex Sauber)
-    "Sergio Perez": "#B0B0B0",          # Cadillac
-    "Valtteri Bottas": "#B0B0B0",       # Cadillac
+    "Max Verstappen":   "#0600EF",
+    "Isack Hadjar":     "#0600EF",
+    "George Russell":   "#00D2BE",
+    "Kimi Antonelli":   "#00D2BE",
+    "Charles Leclerc":  "#DC0000",
+    "Lewis Hamilton":   "#DC0000",
+    "Lando Norris":     "#FF8700",
+    "Oscar Piastri":    "#FF8700",
+    "Fernando Alonso":  "#006F62",
+    "Lance Stroll":     "#006F62",
+    "Alexander Albon":  "#005AFF",
+    "Carlos Sainz":     "#005AFF",
+    "Pierre Gasly":     "#0090FF",
+    "Franco Colapinto": "#0090FF",
+    "Liam Lawson":      "#0131d1",
+    "Arvid Lindblad":   "#0131d1",
+    "Esteban Ocon":     "#FFFFFF",
+    "Oliver Bearman":   "#FFFFFF",
+    "Nico Hülkenberg":  "#00e701",
+    "Gabriel Bortoleto":"#00e701",
+    "Sergio Perez":     "#B0B0B0",
+    "Valtteri Bottas":  "#B0B0B0",
 }
 
 
 def get_sprint_points(round_num):
-    """Holt die Sprint-Punkte eines Rennwochenendes."""
+    """Holt Sprint-Punkte und normalisiert die Fahrernamen auf Notion-Namen."""
     url = f"{BASE_URL}{round_num}/sprint.json"
-    response = requests.get(url)
     sprint_points = {}
-
-    if response.status_code == 200:
-        data = response.json()
-        races = data['MRData']['RaceTable']['Races']
-        if races:
-            for result in races[0]['SprintResults']:
-                driver = f"{result['Driver']['givenName']} {result['Driver']['familyName']}"
-                points = float(result['points'])
-                sprint_points[driver] = int(points)
+    try:
+        r = requests.get(url, timeout=10)
+        if r.status_code == 200:
+            races = r.json()['MRData']['RaceTable']['Races']
+            if races:
+                for res in races[0]['SprintResults']:
+                    api_name    = f"{res['Driver']['givenName']} {res['Driver']['familyName']}"
+                    notion_name = API_TO_NOTION_NAME.get(api_name, api_name)
+                    sprint_points[notion_name] = int(float(res['points']))
+    except Exception:
+        pass
     return sprint_points
 
 
 def get_weekend_points():
-    """Berechnet die Punkte für jedes Wochenende separat."""
+    """
+    Berechnet die Punkte pro Rennwochenende.
+    Fahrernamen werden sofort auf Notion-Namen normalisiert (kein Duplikat-Risiko).
+    """
     weekend_points = {}
 
     for round_num in range(1, len(RACE_LOCATIONS) + 1):
-        url = f"{BASE_URL}{round_num}/results.json"
-        response = requests.get(url)
+        try:
+            r = requests.get(f"{BASE_URL}{round_num}/results.json", timeout=10)
+            if r.status_code != 200:
+                continue
+        except Exception:
+            continue
 
-        if response.status_code == 200:
-            data = response.json()
-            races = data['MRData']['RaceTable']['Races']
-            sprint_points = get_sprint_points(round_num)
+        races         = r.json()['MRData']['RaceTable']['Races']
+        sprint_points = get_sprint_points(round_num)
 
-            if races:
-                for result in races[0]['Results']:
-                    driver = f"{result['Driver']['givenName']} {result['Driver']['familyName']}"
-                    points = float(result['points']) + sprint_points.get(driver, 0)
+        if races:
+            for res in races[0]['Results']:
+                api_name    = f"{res['Driver']['givenName']} {res['Driver']['familyName']}"
+                notion_name = API_TO_NOTION_NAME.get(api_name, api_name)
+                pts         = int(float(res['points'])) + sprint_points.get(notion_name, 0)
 
-                    if driver not in weekend_points:
-                        weekend_points[driver] = [0] * len(RACE_LOCATIONS)
+                if notion_name not in weekend_points:
+                    weekend_points[notion_name] = [0] * len(RACE_LOCATIONS)
 
-                    if weekend_points[driver][round_num - 1] == 0:
-                        weekend_points[driver][round_num - 1] = int(points)
+                if weekend_points[notion_name][round_num - 1] == 0:
+                    weekend_points[notion_name][round_num - 1] = pts
 
     return weekend_points
 
 
 def calculate_total_points(weekend_points):
-    """Berechnet die Gesamtpunkte durch Aufsummieren der Wochenendpunkte."""
-    return {driver: sum(points_list) for driver, points_list in weekend_points.items()}
+    return {driver: sum(pts) for driver, pts in weekend_points.items()}
 
 
 def get_existing_entries(db_id):
-    """
-    Liest alle bestehenden (nicht archivierten) Einträge aus der Datenbank.
-    Gibt ein Dict {Fahrername: page_id} zurück.
-    """
-    import httpx
-    headers = {
+    """Gibt Dict {Fahrername (Notion): page_id} zurück."""
+    http_headers = {
         "Authorization": f"Bearer {NOTION_TOKEN}",
         "Notion-Version": "2022-06-28",
         "Content-Type": "application/json"
     }
-
     existing = {}
-    has_more = True
-    start_cursor = None
-
+    has_more, start_cursor = True, None
     while has_more:
-        url = f"https://api.notion.com/v1/databases/{db_id}/query"
         body = {"page_size": 100}
         if start_cursor:
             body["start_cursor"] = start_cursor
-
-        response = httpx.post(url, headers=headers, json=body, timeout=30.0)
-
-        if response.status_code == 200:
-            data = response.json()
-            for page in data.get("results", []):
-                if page.get("archived"):
-                    continue
-                # Titel-Property heißt "Name" in der Drivers Championship 2026 DB
-                title_prop = page["properties"].get("Name") or page["properties"].get("Driver")
-                if title_prop and title_prop.get("title"):
-                    name = title_prop["title"][0]["text"]["content"] if title_prop["title"] else None
-                    if name:
-                        existing[name] = page["id"]
-            has_more = data.get("has_more", False)
-            start_cursor = data.get("next_cursor")
-        else:
-            print(f"❌ Query fehlgeschlagen: {response.status_code} – {response.text}")
+        r = httpx.post(
+            f"https://api.notion.com/v1/databases/{db_id}/query",
+            headers=http_headers, json=body, timeout=30.0
+        )
+        if r.status_code != 200:
+            print(f"❌ Query fehlgeschlagen: {r.status_code} – {r.text}")
             break
-
+        data = r.json()
+        for page in data.get("results", []):
+            if page.get("archived"):
+                continue
+            title_prop = page["properties"].get("Name") or page["properties"].get("Driver")
+            if title_prop and title_prop.get("title"):
+                name = title_prop["title"][0]["text"]["content"] if title_prop["title"] else None
+                if name:
+                    existing[name] = page["id"]
+        has_more     = data.get("has_more", False)
+        start_cursor = data.get("next_cursor")
     return existing
 
 
+def build_properties(driver, points):
+    """Baut das Notion-Properties-Dict für einen Fahrereintrag auf."""
+    props = {
+        "Name":  {"title": [{"text": {"content": driver}}]},
+        "Total": {"number": sum(points)}
+    }
+
+    for i, location in enumerate(RACE_LOCATIONS):
+        props[location] = {"number": points[i] if points[i] > 0 else None}
+
+    # Driver-Relation zur Drivers 2026 DB setzen
+    page_id = DRIVER_PAGE_IDS.get(driver)
+    if page_id:
+        props["Driver"] = {"relation": [{"id": page_id}]}
+
+    return props
+
+
 def upsert_driver_entries(notion, db_id, weekend_points, total_points):
-    """
-    Upsert-Logik:
-    - Bestehende Einträge → werden per PATCH aktualisiert.
-    - Neue Fahrer → werden neu per POST angelegt.
-    - Kein Löschen/Archivieren – konstruktiver saisonaler Aufbau.
-    """
     print("\n" + "="*60)
     print("🔄 UPSERT FAHRER-EINTRÄGE")
     print("="*60)
@@ -157,52 +192,37 @@ def upsert_driver_entries(notion, db_id, weekend_points, total_points):
     print(f"📋 Bestehende Einträge in DB: {len(existing)}")
 
     sorted_drivers = sorted(
-        [d for d in weekend_points if d in total_points],
-        key=lambda x: total_points[x],
+        weekend_points.keys(),
+        key=lambda d: total_points.get(d, 0),
         reverse=True
     )
 
-    updated = 0
-    created = 0
+    updated, created = 0, 0
 
-    for position, driver in enumerate(sorted_drivers, 1):
+    for pos, driver in enumerate(sorted_drivers, 1):
         points = weekend_points.get(driver, [0] * len(RACE_LOCATIONS))
-
-        driver_properties = {
-            "Name": {"title": [{"text": {"content": driver}}]},
-            "Total": {"number": total_points[driver]}
-        }
-
-        for i, location in enumerate(RACE_LOCATIONS):
-            driver_properties[location] = {"number": points[i] if points[i] > 0 else None}
+        props  = build_properties(driver, points)
 
         if driver in existing:
             try:
-                notion.pages.update(
-                    page_id=existing[driver],
-                    properties=driver_properties
-                )
+                notion.pages.update(page_id=existing[driver], properties=props)
                 updated += 1
-                print(f"♻️  {position:2d}. {driver:<30} {total_points[driver]:3d} Punkte  [aktualisiert]")
+                print(f"♻️  {pos:2d}. {driver:<30} {total_points[driver]:3d} Pts  [aktualisiert]")
             except Exception as e:
-                print(f"❌ Fehler beim Update von {driver}: {e}")
+                print(f"❌ Update-Fehler {driver}: {e}")
         else:
             try:
-                notion.pages.create(
-                    parent={"database_id": db_id},
-                    properties=driver_properties
-                )
+                notion.pages.create(parent={"database_id": db_id}, properties=props)
                 created += 1
-                print(f"✅ {position:2d}. {driver:<30} {total_points[driver]:3d} Punkte  [neu erstellt]")
+                print(f"✅ {pos:2d}. {driver:<30} {total_points[driver]:3d} Pts  [neu erstellt]")
             except Exception as e:
-                print(f"❌ Fehler beim Erstellen von {driver}: {e}")
+                print(f"❌ Erstell-Fehler {driver}: {e}")
 
     print(f"\n✅ Aktualisiert: {updated} | Neu erstellt: {created}")
     return updated, created
 
 
-def update_f1_data():
-    """Hauptfunktion zum Aktualisieren der F1-Daten"""
+def main():
     print("\n" + "="*60)
     print("🏎️  F1 DRIVERS CHAMPIONSHIP 2026 UPDATE")
     print("="*60)
@@ -214,7 +234,7 @@ def update_f1_data():
 
         print("\n📡 Hole F1-Daten (Saison 2026)...")
         weekend_points = get_weekend_points()
-        total_points = calculate_total_points(weekend_points)
+        total_points   = calculate_total_points(weekend_points)
         print(f"✅ Daten für {len(total_points)} Fahrer geladen")
 
         updated, created = upsert_driver_entries(notion, DATABASE_ID, weekend_points, total_points)
@@ -224,19 +244,15 @@ def update_f1_data():
         print("="*60)
         print(f"Aktualisiert: {updated} | Neu erstellt: {created}")
         print("="*60)
-
         return True
 
     except Exception as e:
-        print("\n" + "="*60)
-        print(f"❌ FEHLER: {str(e)}")
-        print("="*60)
         import traceback
+        print(f"\n❌ FEHLER: {e}")
         traceback.print_exc()
         return False
 
 
 if __name__ == "__main__":
-    success = update_f1_data()
-    if not success:
+    if not main():
         exit(1)
