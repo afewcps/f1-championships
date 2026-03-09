@@ -46,7 +46,7 @@ DRIVER_PAGE_IDS = {
     "Oliver Bearman":   "3166839379ed81488937d5a06740ae28",
     "Nico Hülkenberg":  "3166839379ed81be895df1bb7cd0fa40",
     "Gabriel Bortoleto":"3166839379ed81659d63ca189da1b672",
-    "Sergio Perez":     "3186839379ed8095acdbe00d33cbfa35",
+    "Sergio Pérez":     "3186839379ed8095acdbe00d33cbfa35",
     "Valtteri Bottas":  "3186839379ed801693e1d191cca36300",
 }
 
@@ -71,7 +71,7 @@ TEAM_COLORS = {
     "Oliver Bearman":   "#FFFFFF",
     "Nico Hülkenberg":  "#00e701",
     "Gabriel Bortoleto":"#00e701",
-    "Sergio Perez":     "#B0B0B0",
+    "Sergio Pérez":     "#B0B0B0",
     "Valtteri Bottas":  "#B0B0B0",
 }
 
