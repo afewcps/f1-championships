@@ -23,7 +23,7 @@ API_TO_DISPLAY_NAME = {
 # Teamfarben – Saison 2026
 TEAM_COLORS = {
     "Red Bull":      "#3570c5",
-    "Mercedes":      "#3570c5",
+    "Mercedes":      "#42f4d7",
     "Ferrari":       "#e8002d",
     "McLaren":       "#ff8102",
     "Aston Martin":  "#20956e",
