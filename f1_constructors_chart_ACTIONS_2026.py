@@ -114,10 +114,10 @@ def write_json(cumulative, total):
         "backgroundColor": "#191919"
     }
 
-    with open("constructor_chart.json", "w", encoding="utf-8") as f:
+    with open("f1_constructors_chart.json", "w", encoding="utf-8") as f:
         json.dump(chart, f, ensure_ascii=False, indent=2)
 
-    print(f"✅ constructor_chart.json geschrieben – {len(sorted_teams)} Teams, {len(RACE_LOCATIONS)} Runden")
+    print(f"✅ f1_constructors_chart.json geschrieben – {len(sorted_teams)} Teams, {len(RACE_LOCATIONS)} Runden")
     print("\nStandings:")
     print("-" * 45)
     for i, team in enumerate(sorted_teams, 1):
