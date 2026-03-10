@@ -19,8 +19,8 @@
 <body>
   <canvas id="chart"></canvas>
   <script>
-    console.log("🚀 Lade constructor_chart.json...");
-    fetch("constructor_chart.json")
+    console.log("🚀 Lade f1_constructors_chart.json...");
+    fetch("f1_constructors_chart.json")
       .then(response => {
         if (!response.ok) throw new Error("Datei nicht gefunden!");
         return response.json();
