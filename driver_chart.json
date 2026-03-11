@@ -627,7 +627,7 @@
       "color": "#ff2d00"
     },
     {
-      "title": "Sergio Perez",
+      "title": "Sergio Pérez",
       "data": [
         0,
         0,
@@ -685,36 +685,6 @@
         0
       ],
       "color": "#aaaaad"
-    },
-    {
-      "title": "Sergio Pérez",
-      "data": [
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0
-      ],
-      "color": "#888888"
     }
   ],
   "backgroundColor": "#191919"
