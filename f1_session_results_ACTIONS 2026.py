@@ -661,9 +661,9 @@ def upsert_entry(results_db_id, driver_map, weekend_page_id,
         "Session Type": {
             "select": {"name": notion_session_type}
         },
-        # Race → Classification (für Rollup-Durchschnitt), alle anderen → Position
+        # Race + Sprint → Classification (für Rollup-Durchschnitt), alle anderen → Position
         **({"Classification": {"number": driver_data["position"]}}
-           if session_display_name == "Race"
+           if session_display_name in ("Race", "Sprint")
            else {"Position": {"number": driver_data["position"]}}),
         "Points": {
             "number": driver_data["points"]
