@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>F1 2026 Countdown</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Share+Tech+Mono&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #191919;
+    color: #fff;
+    font-family: 'Share Tech Mono', monospace;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 12px;
+    min-height: 100vh;
+  }
+
+  .widget {
+    width: 100%;
+    max-width: 420px;
+  }
+
+  /* ── Header ── */
+  .pit-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+    border-left: 3px solid #adadad;
+    padding-left: 12px;
+  }
+  .pit-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: #39e500;
+    animation: blink 1.2s infinite;
+    flex-shrink: 0;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.15} }
+  .pit-status {
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: #adadad;
+    text-transform: uppercase;
+  }
+
+  /* ── Name ── */
+  .pit-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 3px;
+    color: #fff;
+    line-height: 1;
+    margin-bottom: 2px;
+    padding-left: 15px;
+  }
+  .pit-session {
+    font-size: 11px;
+    color: #adadad;
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+    padding-left: 15px;
+  }
+
+  /* ── Grid ── */
+  .pit-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 2px;
+    margin-bottom: 10px;
+  }
+  .pit-cell {
+    background: #111;
+    border: 1px solid #1e1e1e;
+    text-align: center;
+    padding: 14px 6px 10px;
+    position: relative;
+  }
+  .pit-cell::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    transition: background 0.6s ease;
+  }
+  /* colour states */
+  .pit-cell.c-white::before  { background: #ffffff; }
+  .pit-cell.c-yellow::before { background: #ffcc00; }
+  .pit-cell.c-green::before  { background: #39e500; }
+  .pit-cell.c-purple::before { background: #a855f7; }
+
+  .pit-num {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 42px;
+    font-weight: 900;
+    line-height: 1;
+    display: block;
+    transition: color 0.6s ease;
+  }
+  .pit-cell.c-white  .pit-num { color: #ffffff; }
+  .pit-cell.c-yellow .pit-num { color: #ffcc00; }
+  .pit-cell.c-green  .pit-num { color: #39e500; }
+  .pit-cell.c-purple .pit-num { color: #a855f7; }
+
+  .pit-unit {
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: #adadad;
+    margin-top: 5px;
+    display: block;
+  }
+
+  /* ── Footer ── */
+  .pit-next {
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #adadad;
+    text-align: right;
+  }
+</style>
+</head>
+<body>
+<div class="widget">
+
+  <div class="pit-header">
+    <div class="pit-dot" id="pit-dot" style="display:none"></div>
+    <div class="pit-status" id="pit-status">NEXT EVENT</div>
+  </div>
+
+  <div class="pit-name" id="pit-name">—</div>
+  <div class="pit-session" id="pit-session">—</div>
+
+  <div class="pit-grid">
+    <div class="pit-cell c-white" id="pc-d">
+      <span class="pit-num" id="pit-d">00</span>
+      <span class="pit-unit">DAYS</span>
+    </div>
+    <div class="pit-cell c-white" id="pc-h">
+      <span class="pit-num" id="pit-h">00</span>
+      <span class="pit-unit">HRS</span>
+    </div>
+    <div class="pit-cell c-white" id="pc-m">
+      <span class="pit-num" id="pit-m">00</span>
+      <span class="pit-unit">MIN</span>
+    </div>
+    <div class="pit-cell c-white" id="pc-s">
+      <span class="pit-num" id="pit-s">00</span>
+      <span class="pit-unit">SEC</span>
+    </div>
+  </div>
+
+  <div class="pit-next" id="pit-next">—</div>
+
+</div>
+
+<script>
+function pd(str) {
+  if (!str || !str.trim()) return null;
+  const [dp, tp] = str.trim().split(' ');
+  const [m, d, y] = dp.split('/');
+  const [hh, mm] = tp ? tp.split(':') : ['0','0'];
+  return new Date(+y, +m-1, +d, +hh, +mm);
+}
+function pad(n) { return String(n).padStart(2,'0'); }
+
+const SPONSORS = [
+  'QATAR AIRWAYS','ARAMCO','HEINEKEN','GULF AIR','STC',
+  'CRYPTO.COM','LENOVO','LOUIS VUITTON','MSC CRUISES','PIRELLI',
+  'AWS','TAG HEUER','SINGAPORE AIRLINES','ETIHAD AIRWAYS','MOET & CHANDON'
+];
+function cleanName(raw) {
+  let s = raw.replace(/^FORMULA\s+1\s+/i,'');
+  for (const sp of SPONSORS) {
+    s = s.replace(new RegExp('^'+sp.replace('.','\\.')+'\\s+','i'),'');
+  }
+  return s.trim();
+}
+
+const RAW = [
+  ["FORMULA 1 ARAMCO PRE-SEASON TESTING 1 2026 - Practice 1","02/11/2026 00:00",""],
+  ["FORMULA 1 ARAMCO PRE-SEASON TESTING 1 2026 - Practice 2","02/12/2026 00:00",""],
+  ["FORMULA 1 ARAMCO PRE-SEASON TESTING 1 2026 - Practice 3","02/13/2026 00:00",""],
+  ["FORMULA 1 ARAMCO PRE-SEASON TESTING 2 2026 - Practice 1","02/18/2026 00:00",""],
+  ["FORMULA 1 ARAMCO PRE-SEASON TESTING 2 2026 - Practice 2","02/19/2026 00:00",""],
+  ["FORMULA 1 ARAMCO PRE-SEASON TESTING 2 2026 - Practice 3","02/20/2026 00:00",""],
+  ["FORMULA 1 QATAR AIRWAYS AUSTRALIAN GRAND PRIX 2026 - Practice 1","03/06/2026 01:30","03/06/2026 02:30"],
+  ["FORMULA 1 QATAR AIRWAYS AUSTRALIAN GRAND PRIX 2026 - Practice 2","03/06/2026 05:00","03/06/2026 06:00"],
+  ["FORMULA 1 QATAR AIRWAYS AUSTRALIAN GRAND PRIX 2026 - Practice 3","03/07/2026 01:30","03/07/2026 02:30"],
+  ["FORMULA 1 QATAR AIRWAYS AUSTRALIAN GRAND PRIX 2026 - Qualifying","03/07/2026 05:00","03/07/2026 06:00"],
+  ["FORMULA 1 QATAR AIRWAYS AUSTRALIAN GRAND PRIX 2026 - Race","03/08/2026 04:00","03/08/2026 06:00"],
+  ["FORMULA 1 HEINEKEN CHINESE GRAND PRIX 2026 - Practice 1","03/13/2026 03:30","03/13/2026 04:30"],
+  ["FORMULA 1 HEINEKEN CHINESE GRAND PRIX 2026 - Sprint Qualification","03/13/2026 07:30","03/13/2026 08:14"],
+  ["FORMULA 1 HEINEKEN CHINESE GRAND PRIX 2026 - Sprint Race","03/14/2026 03:00","03/14/2026 04:00"],
+  ["FORMULA 1 HEINEKEN CHINESE GRAND PRIX 2026 - Qualifying","03/14/2026 07:00","03/14/2026 08:00"],
+  ["FORMULA 1 HEINEKEN CHINESE GRAND PRIX 2026 - Race","03/15/2026 07:00","03/15/2026 09:00"],
+  ["FORMULA 1 ARAMCO JAPANESE GRAND PRIX 2026 - Practice 1","03/27/2026 02:30","03/27/2026 03:30"],
+  ["FORMULA 1 ARAMCO JAPANESE GRAND PRIX 2026 - Practice 2","03/27/2026 06:00","03/27/2026 07:00"],
+  ["FORMULA 1 ARAMCO JAPANESE GRAND PRIX 2026 - Practice 3","03/28/2026 02:30","03/28/2026 03:30"],
+  ["FORMULA 1 ARAMCO JAPANESE GRAND PRIX 2026 - Qualifying","03/28/2026 06:00","03/28/2026 07:00"],
+  ["FORMULA 1 ARAMCO JAPANESE GRAND PRIX 2026 - Race","03/29/2026 05:00","03/29/2026 07:00"],
+  ["FORMULA 1 GULF AIR BAHRAIN GRAND PRIX 2026 - Practice 1","04/10/2026 11:30","04/10/2026 12:30"],
+  ["FORMULA 1 GULF AIR BAHRAIN GRAND PRIX 2026 - Practice 2","04/10/2026 15:00","04/10/2026 16:00"],
+  ["FORMULA 1 GULF AIR BAHRAIN GRAND PRIX 2026 - Practice 3","04/11/2026 12:30","04/11/2026 13:30"],
+  ["FORMULA 1 GULF AIR BAHRAIN GRAND PRIX 2026 - Qualifying","04/11/2026 16:00","04/11/2026 17:00"],
+  ["FORMULA 1 GULF AIR BAHRAIN GRAND PRIX 2026 - Race","04/12/2026 15:00","04/12/2026 17:00"],
+  ["FORMULA 1 STC SAUDI ARABIAN GRAND PRIX 2026 - Practice 1","04/17/2026 13:30","04/17/2026 14:30"],
+  ["FORMULA 1 STC SAUDI ARABIAN GRAND PRIX 2026 - Practice 2","04/17/2026 17:00","04/17/2026 18:00"],
+  ["FORMULA 1 STC SAUDI ARABIAN GRAND PRIX 2026 - Practice 3","04/18/2026 13:30","04/18/2026 14:30"],
+  ["FORMULA 1 STC SAUDI ARABIAN GRAND PRIX 2026 - Qualifying","04/18/2026 17:00","04/18/2026 18:00"],
+  ["FORMULA 1 STC SAUDI ARABIAN GRAND PRIX 2026 - Race","04/19/2026 17:00","04/19/2026 19:00"],
+  ["FORMULA 1 CRYPTO.COM MIAMI GRAND PRIX 2026 - Practice 1","05/01/2026 16:30","05/01/2026 17:30"],
+  ["FORMULA 1 CRYPTO.COM MIAMI GRAND PRIX 2026 - Sprint Qualification","05/01/2026 20:30","05/01/2026 21:14"],
+  ["FORMULA 1 CRYPTO.COM MIAMI GRAND PRIX 2026 - Sprint Race","05/02/2026 16:00","05/02/2026 17:00"],
+  ["FORMULA 1 CRYPTO.COM MIAMI GRAND PRIX 2026 - Qualifying","05/02/2026 20:00","05/02/2026 21:00"],
+  ["FORMULA 1 CRYPTO.COM MIAMI GRAND PRIX 2026 - Race","05/03/2026 20:00","05/03/2026 22:00"],
+  ["FORMULA 1 LENOVO GRAND PRIX DU CANADA 2026 - Practice 1","05/22/2026 16:30","05/22/2026 17:30"],
+  ["FORMULA 1 LENOVO GRAND PRIX DU CANADA 2026 - Sprint Qualification","05/22/2026 20:30","05/22/2026 21:14"],
+  ["FORMULA 1 LENOVO GRAND PRIX DU CANADA 2026 - Sprint Race","05/23/2026 16:00","05/23/2026 17:00"],
+  ["FORMULA 1 LENOVO GRAND PRIX DU CANADA 2026 - Qualifying","05/23/2026 20:00","05/23/2026 21:00"],
+  ["FORMULA 1 LENOVO GRAND PRIX DU CANADA 2026 - Race","05/24/2026 20:00","05/24/2026 22:00"],
+  ["FORMULA 1 LOUIS VUITTON GRAND PRIX DE MONACO 2026 - Practice 1","06/05/2026 11:30","06/05/2026 12:30"],
+  ["FORMULA 1 LOUIS VUITTON GRAND PRIX DE MONACO 2026 - Practice 2","06/05/2026 15:00","06/05/2026 16:00"],
+  ["FORMULA 1 LOUIS VUITTON GRAND PRIX DE MONACO 2026 - Practice 3","06/06/2026 10:30","06/06/2026 11:30"],
+  ["FORMULA 1 LOUIS VUITTON GRAND PRIX DE MONACO 2026 - Qualifying","06/06/2026 14:00","06/06/2026 15:00"],
+  ["FORMULA 1 LOUIS VUITTON GRAND PRIX DE MONACO 2026 - Race","06/07/2026 13:00","06/07/2026 15:00"],
+  ["FORMULA 1 MSC CRUISES GRAN PREMIO DE BARCELONA-CATALUNYA 2026 - Practice 1","06/12/2026 11:30","06/12/2026 12:30"],
+  ["FORMULA 1 MSC CRUISES GRAN PREMIO DE BARCELONA-CATALUNYA 2026 - Practice 2","06/12/2026 15:00","06/12/2026 16:00"],
+  ["FORMULA 1 MSC CRUISES GRAN PREMIO DE BARCELONA-CATALUNYA 2026 - Practice 3","06/13/2026 10:30","06/13/2026 11:30"],
+  ["FORMULA 1 MSC CRUISES GRAN PREMIO DE BARCELONA-CATALUNYA 2026 - Qualifying","06/13/2026 14:00","06/13/2026 15:00"],
+  ["FORMULA 1 MSC CRUISES GRAN PREMIO DE BARCELONA-CATALUNYA 2026 - Race","06/14/2026 13:00","06/14/2026 15:00"],
+  ["FORMULA 1 LENOVO AUSTRIAN GRAND PRIX 2026 - Practice 1","06/26/2026 11:30","06/26/2026 12:30"],
+  ["FORMULA 1 LENOVO AUSTRIAN GRAND PRIX 2026 - Practice 2","06/26/2026 15:00","06/26/2026 16:00"],
+  ["FORMULA 1 LENOVO AUSTRIAN GRAND PRIX 2026 - Practice 3","06/27/2026 10:30","06/27/2026 11:30"],
+  ["FORMULA 1 LENOVO AUSTRIAN GRAND PRIX 2026 - Qualifying","06/27/2026 14:00","06/27/2026 15:00"],
+  ["FORMULA 1 LENOVO AUSTRIAN GRAND PRIX 2026 - Race","06/28/2026 13:00","06/28/2026 15:00"],
+  ["FORMULA 1 PIRELLI BRITISH GRAND PRIX 2026 - Practice 1","07/03/2026 11:30","07/03/2026 12:30"],
+  ["FORMULA 1 PIRELLI BRITISH GRAND PRIX 2026 - Sprint Qualification","07/03/2026 15:30","07/03/2026 16:14"],
+  ["FORMULA 1 PIRELLI BRITISH GRAND PRIX 2026 - Sprint Race","07/04/2026 11:00","07/04/2026 12:00"],
+  ["FORMULA 1 PIRELLI BRITISH GRAND PRIX 2026 - Qualifying","07/04/2026 15:00","07/04/2026 16:00"],
+  ["FORMULA 1 PIRELLI BRITISH GRAND PRIX 2026 - Race","07/05/2026 14:00","07/05/2026 16:00"],
+  ["FORMULA 1 MOET & CHANDON BELGIAN GRAND PRIX 2026 - Practice 1","07/17/2026 11:30","07/17/2026 12:30"],
+  ["FORMULA 1 MOET & CHANDON BELGIAN GRAND PRIX 2026 - Practice 2","07/17/2026 15:00","07/17/2026 16:00"],
+  ["FORMULA 1 MOET & CHANDON BELGIAN GRAND PRIX 2026 - Practice 3","07/18/2026 10:30","07/18/2026 11:30"],
+  ["FORMULA 1 MOET & CHANDON BELGIAN GRAND PRIX 2026 - Qualifying","07/18/2026 14:00","07/18/2026 15:00"],
+  ["FORMULA 1 MOET & CHANDON BELGIAN GRAND PRIX 2026 - Race","07/19/2026 13:00","07/19/2026 15:00"],
+  ["FORMULA 1 AWS HUNGARIAN GRAND PRIX 2026 - Practice 1","07/24/2026 11:30","07/24/2026 12:30"],
+  ["FORMULA 1 AWS HUNGARIAN GRAND PRIX 2026 - Practice 2","07/24/2026 15:00","07/24/2026 16:00"],
+  ["FORMULA 1 AWS HUNGARIAN GRAND PRIX 2026 - Practice 3","07/25/2026 10:30","07/25/2026 11:30"],
+  ["FORMULA 1 AWS HUNGARIAN GRAND PRIX 2026 - Qualifying","07/25/2026 14:00","07/25/2026 15:00"],
+  ["FORMULA 1 AWS HUNGARIAN GRAND PRIX 2026 - Race","07/26/2026 13:00","07/26/2026 15:00"],
+  ["FORMULA 1 HEINEKEN DUTCH GRAND PRIX 2026 - Practice 1","08/21/2026 10:30","08/21/2026 11:30"],
+  ["FORMULA 1 HEINEKEN DUTCH GRAND PRIX 2026 - Sprint Qualification","08/21/2026 14:30","08/21/2026 15:14"],
+  ["FORMULA 1 HEINEKEN DUTCH GRAND PRIX 2026 - Sprint Race","08/22/2026 10:00","08/22/2026 11:00"],
+  ["FORMULA 1 HEINEKEN DUTCH GRAND PRIX 2026 - Qualifying","08/22/2026 14:00","08/22/2026 15:00"],
+  ["FORMULA 1 HEINEKEN DUTCH GRAND PRIX 2026 - Race","08/23/2026 13:00","08/23/2026 15:00"],
+  ["FORMULA 1 PIRELLI GRAN PREMIO D'ITALIA 2026 - Practice 1","09/04/2026 10:30","09/04/2026 11:30"],
+  ["FORMULA 1 PIRELLI GRAN PREMIO D'ITALIA 2026 - Practice 2","09/04/2026 14:00","09/04/2026 15:00"],
+  ["FORMULA 1 PIRELLI GRAN PREMIO D'ITALIA 2026 - Practice 3","09/05/2026 10:30","09/05/2026 11:30"],
+  ["FORMULA 1 PIRELLI GRAN PREMIO D'ITALIA 2026 - Qualifying","09/05/2026 14:00","09/05/2026 15:00"],
+  ["FORMULA 1 PIRELLI GRAN PREMIO D'ITALIA 2026 - Race","09/06/2026 13:00","09/06/2026 15:00"],
+  ["FORMULA 1 TAG HEUER GRAN PREMIO DE ESPANA 2026 - Practice 1","09/11/2026 11:30","09/11/2026 12:30"],
+  ["FORMULA 1 TAG HEUER GRAN PREMIO DE ESPANA 2026 - Practice 2","09/11/2026 15:00","09/11/2026 16:00"],
+  ["FORMULA 1 TAG HEUER GRAN PREMIO DE ESPANA 2026 - Practice 3","09/12/2026 10:30","09/12/2026 11:30"],
+  ["FORMULA 1 TAG HEUER GRAN PREMIO DE ESPANA 2026 - Qualifying","09/12/2026 14:00","09/12/2026 15:00"],
+  ["FORMULA 1 TAG HEUER GRAN PREMIO DE ESPANA 2026 - Race","09/13/2026 13:00","09/13/2026 15:00"],
+  ["FORMULA 1 QATAR AIRWAYS AZERBAIJAN GRAND PRIX 2026 - Practice 1","09/24/2026 08:30","09/24/2026 09:30"],
+  ["FORMULA 1 QATAR AIRWAYS AZERBAIJAN GRAND PRIX 2026 - Practice 2","09/24/2026 12:00","09/24/2026 13:00"],
+  ["FORMULA 1 QATAR AIRWAYS AZERBAIJAN GRAND PRIX 2026 - Practice 3","09/25/2026 08:30","09/25/2026 09:30"],
+  ["FORMULA 1 QATAR AIRWAYS AZERBAIJAN GRAND PRIX 2026 - Qualifying","09/25/2026 12:00","09/25/2026 13:00"],
+  ["FORMULA 1 QATAR AIRWAYS AZERBAIJAN GRAND PRIX 2026 - Race","09/26/2026 11:00","09/26/2026 13:00"],
+  ["FORMULA 1 SINGAPORE AIRLINES SINGAPORE GRAND PRIX 2026 - Practice 1","10/09/2026 08:30","10/09/2026 09:30"],
+  ["FORMULA 1 SINGAPORE AIRLINES SINGAPORE GRAND PRIX 2026 - Sprint Qualification","10/09/2026 12:30","10/09/2026 13:14"],
+  ["FORMULA 1 SINGAPORE AIRLINES SINGAPORE GRAND PRIX 2026 - Sprint Race","10/10/2026 09:00","10/10/2026 10:00"],
+  ["FORMULA 1 SINGAPORE AIRLINES SINGAPORE GRAND PRIX 2026 - Qualifying","10/10/2026 13:00","10/10/2026 14:00"],
+  ["FORMULA 1 SINGAPORE AIRLINES SINGAPORE GRAND PRIX 2026 - Race","10/11/2026 12:00","10/11/2026 14:00"],
+  ["FORMULA 1 MSC CRUISES UNITED STATES GRAND PRIX 2026 - Practice 1","10/23/2026 17:30","10/23/2026 18:30"],
+  ["FORMULA 1 MSC CRUISES UNITED STATES GRAND PRIX 2026 - Practice 2","10/23/2026 21:00","10/23/2026 22:00"],
+  ["FORMULA 1 MSC CRUISES UNITED STATES GRAND PRIX 2026 - Practice 3","10/24/2026 17:30","10/24/2026 18:30"],
+  ["FORMULA 1 MSC CRUISES UNITED STATES GRAND PRIX 2026 - Qualifying","10/24/2026 21:00","10/24/2026 22:00"],
+  ["FORMULA 1 MSC CRUISES UNITED STATES GRAND PRIX 2026 - Race","10/25/2026 20:00","10/25/2026 22:00"],
+  ["FORMULA 1 GRAN PREMIO DE LA CIUDAD DE MEXICO 2026 - Practice 1","10/30/2026 18:30","10/30/2026 19:30"],
+  ["FORMULA 1 GRAN PREMIO DE LA CIUDAD DE MEXICO 2026 - Practice 2","10/30/2026 22:00","10/30/2026 23:00"],
+  ["FORMULA 1 GRAN PREMIO DE LA CIUDAD DE MEXICO 2026 - Practice 3","10/31/2026 17:30","10/31/2026 18:30"],
+  ["FORMULA 1 GRAN PREMIO DE LA CIUDAD DE MEXICO 2026 - Qualifying","10/31/2026 21:00","10/31/2026 22:00"],
+  ["FORMULA 1 GRAN PREMIO DE LA CIUDAD DE MEXICO 2026 - Race","11/01/2026 20:00","11/01/2026 22:00"],
+  ["FORMULA 1 MSC CRUISES GRANDE PREMIO DE SAO PAULO 2026 - Practice 1","11/06/2026 15:30","11/06/2026 16:30"],
+  ["FORMULA 1 MSC CRUISES GRANDE PREMIO DE SAO PAULO 2026 - Practice 2","11/06/2026 19:00","11/06/2026 20:00"],
+  ["FORMULA 1 MSC CRUISES GRANDE PREMIO DE SAO PAULO 2026 - Practice 3","11/07/2026 14:30","11/07/2026 15:30"],
+  ["FORMULA 1 MSC CRUISES GRANDE PREMIO DE SAO PAULO 2026 - Qualifying","11/07/2026 18:00","11/07/2026 19:00"],
+  ["FORMULA 1 MSC CRUISES GRANDE PREMIO DE SAO PAULO 2026 - Race","11/08/2026 17:00","11/08/2026 19:00"],
+  ["FORMULA 1 HEINEKEN LAS VEGAS GRAND PRIX 2026 - Practice 1","11/20/2026 00:30","11/20/2026 01:30"],
+  ["FORMULA 1 HEINEKEN LAS VEGAS GRAND PRIX 2026 - Practice 2","11/20/2026 04:00","11/20/2026 05:00"],
+  ["FORMULA 1 HEINEKEN LAS VEGAS GRAND PRIX 2026 - Practice 3","11/21/2026 00:30","11/21/2026 01:30"],
+  ["FORMULA 1 HEINEKEN LAS VEGAS GRAND PRIX 2026 - Qualifying","11/21/2026 04:00","11/21/2026 05:00"],
+  ["FORMULA 1 HEINEKEN LAS VEGAS GRAND PRIX 2026 - Race","11/22/2026 04:00","11/22/2026 06:00"],
+  ["FORMULA 1 QATAR AIRWAYS QATAR GRAND PRIX 2026 - Practice 1","11/27/2026 13:30","11/27/2026 14:30"],
+  ["FORMULA 1 QATAR AIRWAYS QATAR GRAND PRIX 2026 - Practice 2","11/27/2026 17:00","11/27/2026 18:00"],
+  ["FORMULA 1 QATAR AIRWAYS QATAR GRAND PRIX 2026 - Practice 3","11/28/2026 14:30","11/28/2026 15:30"],
+  ["FORMULA 1 QATAR AIRWAYS QATAR GRAND PRIX 2026 - Qualifying","11/28/2026 18:00","11/28/2026 19:00"],
+  ["FORMULA 1 QATAR AIRWAYS QATAR GRAND PRIX 2026 - Race","11/29/2026 16:00","11/29/2026 18:00"],
+  ["FORMULA 1 ETIHAD AIRWAYS ABU DHABI GRAND PRIX 2026 - Practice 1","12/04/2026 09:30","12/04/2026 10:30"],
+  ["FORMULA 1 ETIHAD AIRWAYS ABU DHABI GRAND PRIX 2026 - Practice 2","12/04/2026 13:00","12/04/2026 14:00"],
+  ["FORMULA 1 ETIHAD AIRWAYS ABU DHABI GRAND PRIX 2026 - Practice 3","12/05/2026 10:30","12/05/2026 11:30"],
+  ["FORMULA 1 ETIHAD AIRWAYS ABU DHABI GRAND PRIX 2026 - Qualifying","12/05/2026 14:00","12/05/2026 15:00"],
+  ["FORMULA 1 ETIHAD AIRWAYS ABU DHABI GRAND PRIX 2026 - Race","12/06/2026 13:00","12/06/2026 15:00"],
+];
+
+const EVENTS = RAW.map(([raw, s, e]) => {
+  const parts = raw.split(' - ');
+  const title = cleanName(parts[0]);
+  const session = parts[1] ? parts[1].trim() : '';
+  return { title, session, start: pd(s), end: e ? pd(e) : null };
+}).filter(ev => ev.start);
+
+function getColors(days, hours, mins, live) {
+  if (live)                                          return ['c-green','c-green','c-green','c-green'];
+  if (days > 3)                                      return ['c-white','c-white','c-white','c-white'];
+  if (days >= 1)                                     return ['c-yellow','c-white','c-white','c-white'];
+  if (days === 0 && hours > 6)                       return ['c-green','c-yellow','c-white','c-white'];
+  if (days === 0 && hours >= 1)                      return ['c-purple','c-green','c-yellow','c-white'];
+  if (days === 0 && hours === 0 && mins > 0)         return ['c-purple','c-purple','c-green','c-yellow'];
+  return ['c-purple','c-purple','c-purple','c-purple'];
+}
+
+function setColor(id, cls) {
+  const el = document.getElementById(id);
+  el.className = 'pit-cell ' + cls;
+}
+
+function getCurrent() {
+  const now = new Date();
+  for (const ev of EVENTS) {
+    if (ev.end && now >= ev.start && now < ev.end) return { ev, live: true };
+  }
+  for (const ev of EVENTS) {
+    if (ev.start > now) return { ev, live: false };
+  }
+  return null;
+}
+
+function getNext(ev) {
+  const i = EVENTS.indexOf(ev);
+  return (i >= 0 && i + 1 < EVENTS.length) ? EVENTS[i + 1] : null;
+}
+
+function tick() {
+  const res = getCurrent();
+  if (!res) return;
+  const { ev, live } = res;
+  const next = getNext(ev);
+  const target = live ? ev.end : ev.start;
+  if (!target) return;
+
+  const diff  = Math.max(0, target - new Date());
+  const days  = Math.floor(diff / 86400000);
+  const hours = Math.floor((diff % 86400000) / 3600000);
+  const mins  = Math.floor((diff % 3600000) / 60000);
+  const secs  = Math.floor((diff % 60000) / 1000);
+
+  document.getElementById('pit-d').textContent = pad(days);
+  document.getElementById('pit-h').textContent = pad(hours);
+  document.getElementById('pit-m').textContent = pad(mins);
+  document.getElementById('pit-s').textContent = pad(secs);
+
+  document.getElementById('pit-name').textContent    = ev.title;
+  document.getElementById('pit-session').textContent = ev.session;
+  document.getElementById('pit-status').textContent  = live ? 'SESSION LIVE' : 'NEXT EVENT';
+  document.getElementById('pit-dot').style.display   = live ? 'block' : 'none';
+
+  document.getElementById('pit-next').textContent = next
+    ? 'UP NEXT → ' + next.session
+    : '';
+
+  const colors = getColors(days, hours, mins, live);
+  ['d','h','m','s'].forEach((k, i) => setColor('pc-' + k, colors[i]));
+}
+
+tick();
+setInterval(tick, 1000);
+</script>
+</body>
+</html>
