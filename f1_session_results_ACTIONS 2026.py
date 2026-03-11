@@ -484,10 +484,17 @@ def get_session_results(year, gp_name, session_display_name):
             except (TypeError, ValueError):
                 position = None
 
-            # DNF: Status ist nicht "Finished" und nicht "+X Lap(s)"
-            dnf = False
-            if status and status != "Finished" and not status.startswith("+"):
+            # DNF: ClassifiedPosition ist die zuverlässigste Quelle.
+            # "R" (Retired) = DNF; jeder numerische Wert = klassifiziert = kein DNF.
+            # Fallback auf Status-String falls ClassifiedPosition fehlt.
+            classified_pos = str(row.get("ClassifiedPosition", "")).strip()
+            if classified_pos and classified_pos.lower() not in ("nan", "", "r"):
+                # Numerische ClassifiedPosition → Fahrer ist klassifiziert
+                dnf = False
+            elif status and status != "Finished" and not status.startswith("+"):
                 dnf = True
+            else:
+                dnf = False
 
             # Punkte
             if session_display_name == "Race":
@@ -654,9 +661,10 @@ def upsert_entry(results_db_id, driver_map, weekend_page_id,
         "Session Type": {
             "select": {"name": notion_session_type}
         },
-        "Position": {
-            "number": driver_data["position"]
-        },
+        # Race → Classification (für Rollup-Durchschnitt), alle anderen → Position
+        **({"Classification": {"number": driver_data["position"]}}
+           if session_display_name == "Race"
+           else {"Position": {"number": driver_data["position"]}}),
         "Points": {
             "number": driver_data["points"]
         },
