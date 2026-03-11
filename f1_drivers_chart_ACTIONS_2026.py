@@ -34,7 +34,7 @@ TEAM_COLORS = {
     "Oliver Bearman":        "#dee1e2",
     "Nico Hülkenberg":       "#ff2d00",
     "Gabriel Bortoleto":     "#ff2d00",
-    "Sergio Perez":          "#aaaaad",
+    "Sergio Pérez":          "#aaaaad",
     "Valtteri Bottas":       "#aaaaad",
 }
 
