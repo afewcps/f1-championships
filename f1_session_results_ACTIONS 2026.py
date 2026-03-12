@@ -357,7 +357,7 @@ def load_existing_entries_for_weekend(results_db_id, weekend_page_id):
 
     cache = {}
     for page in pages:
-        title_list = page.get("properties", {}).get("Eintrag", {}).get("title", [])
+        title_list = page.get("properties", {}).get("Entry", {}).get("title", [])
         title = title_list[0]["text"]["content"] if title_list else ""
         if title:
             cache[title] = page["id"]
@@ -649,7 +649,7 @@ def upsert_entry(results_db_id, driver_map, weekend_page_id,
 
     # Properties für Notion aufbauen
     properties = {
-        "Eintrag": {
+        "Entry": {
             "title": [{"text": {"content": eintrag_title}}]
         },
         "Driver": {
