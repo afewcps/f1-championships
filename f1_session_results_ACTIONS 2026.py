@@ -232,7 +232,7 @@ def build_driver_map(drivers_db_id):
         props = page.get("properties", {})
 
         # Kürzel aus der "Abbreviation"-Property (Rich Text)
-        abbr_list = props.get("Abbreviation", {}).get("rich_text", [])
+        abbr_list = props.get("Code", {}).get("rich_text", [])
         abbr = abbr_list[0]["text"]["content"].strip() if abbr_list else ""
 
         # Name aus der Title-Property
