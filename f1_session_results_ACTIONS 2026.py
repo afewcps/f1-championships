@@ -441,11 +441,15 @@ def get_session_results(year, gp_name, session_display_name):
         print(f"   ⚠️ Konnte Session-Datum nicht prüfen: {e} – fahre fort")
 
     # Für Qualifying/Sprint Qualifying zusätzlich prüfen ob echte Zeiten vorliegen
+    # FIX: Sprint Qualifying speichert Zeiten in SQ1/SQ2/SQ3, nicht in Q1/Q2/Q3.
+    # Die alte Prüfung auf Q1 lieferte für SQ immer NaN → Session wurde fälschlicherweise
+    # als "noch keine Daten" eingestuft, obwohl SQ1 bereits befüllt war.
     if session_display_name in ("Qualifying", "Sprint Qualifying"):
         try:
-            q1_col = session.results.get("Q1", None)
-            if q1_col is not None and pd.isna(q1_col).all():
-                print(f"   ⏳ Qualifying hat noch keine Zeitdaten → übersprungen")
+            col_name = "SQ1" if session_display_name == "Sprint Qualifying" else "Q1"
+            time_col = session.results.get(col_name, None)
+            if time_col is not None and pd.isna(time_col).all():
+                print(f"   ⏳ {session_display_name} hat noch keine Zeitdaten ({col_name} leer) → übersprungen")
                 return None
         except Exception:
             pass
