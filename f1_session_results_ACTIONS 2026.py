@@ -394,21 +394,65 @@ def get_qualifying_positions(year, gp_name):
 
 def get_sprint_qualifying_positions(year, gp_name):
     """
-    Gibt ein Dict zurück: Fahrerkürzel → SQ-Position (aus dem Sprint Qualifying).
-    Wird verwendet um Grid Position beim Sprint-Eintrag zu setzen.
+    Gibt ein Dict zurück: Fahrerkürzel → Grid-Position für den Sprint.
+    Positionen werden aus SQ1/SQ2/SQ3-Zeiten abgeleitet (nicht aus Position-Spalte,
+    die FastF1 für SQ-Sessions nicht zuverlässig befüllt).
+    Klassifikationslogik: SQ3-Fahrer vor SQ2-only vor SQ1-only, innerhalb
+    jeder Gruppe nach Zeit aufsteigend sortiert — entspricht der offiziellen FIA-Klassifikation.
     """
     print("   📡 Lade Sprint-Qualifying-Positionen für Grid Position...")
     try:
         session = fastf1.get_session(year, gp_name, "SQ")
         session.load(telemetry=False, weather=False, messages=False)
-        sq_map = {}
-        for _, row in session.results.iterrows():
-            abbr = row.get("Abbreviation", "")
-            pos  = row.get("Position", None)
-            if abbr and pos and not pd.isna(pos):
-                sq_map[abbr] = int(pos)
-        print(f"   ✅ {len(sq_map)} Sprint-Qualifying-Positionen geladen")
+
+        results = session.results.copy()
+        if results is None or results.empty:
+            print("   ⚠️ Sprint Qualifying: keine Ergebnisse geladen")
+            return {}
+
+        sq3_drivers = []
+        sq2_drivers = []
+        sq1_drivers = []
+
+        for _, row in results.iterrows():
+            abbr = str(row.get("Abbreviation", "")).strip()
+            if not abbr:
+                continue
+
+            sq3 = row.get("SQ3", pd.NaT)
+            sq2 = row.get("SQ2", pd.NaT)
+            sq1 = row.get("SQ1", pd.NaT)
+
+            sq3_valid = sq3 is not None and not (isinstance(sq3, float) and pd.isna(sq3)) and pd.notna(sq3)
+            sq2_valid = sq2 is not None and not (isinstance(sq2, float) and pd.isna(sq2)) and pd.notna(sq2)
+            sq1_valid = sq1 is not None and not (isinstance(sq1, float) and pd.isna(sq1)) and pd.notna(sq1)
+
+            if sq3_valid:
+                sq3_drivers.append((abbr, sq3))
+            elif sq2_valid:
+                sq2_drivers.append((abbr, sq2))
+            elif sq1_valid:
+                sq1_drivers.append((abbr, sq1))
+            else:
+                # Kein Versuch → wird am Ende eingereiht (nach Startnummer)
+                number_raw = row.get("DriverNumber", 99)
+                try:
+                    number = int(float(number_raw))
+                except (TypeError, ValueError):
+                    number = 99
+                sq1_drivers.append((abbr, pd.Timedelta(hours=number)))  # Platzhalter-Zeit für Sortierung
+
+        sq3_drivers.sort(key=lambda x: x[1])
+        sq2_drivers.sort(key=lambda x: x[1])
+        sq1_drivers.sort(key=lambda x: x[1])
+
+        ordered = sq3_drivers + sq2_drivers + sq1_drivers
+        sq_map = {abbr: pos for pos, (abbr, _) in enumerate(ordered, 1)}
+
+        print(f"   ✅ {len(sq_map)} Sprint-Qualifying-Positionen abgeleitet "
+              f"(SQ3: {len(sq3_drivers)}, SQ2: {len(sq2_drivers)}, SQ1: {len(sq1_drivers)})")
         return sq_map
+
     except Exception as e:
         print(f"   ⚠️ Sprint-Qualifying-Positionen konnten nicht geladen werden: {e}")
         return {}
