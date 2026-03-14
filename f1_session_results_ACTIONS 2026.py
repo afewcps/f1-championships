@@ -395,62 +395,57 @@ def get_qualifying_positions(year, gp_name):
 def get_sprint_qualifying_positions(year, gp_name):
     """
     Gibt ein Dict zurück: Fahrerkürzel → Grid-Position für den Sprint.
-    Positionen werden aus SQ1/SQ2/SQ3-Zeiten abgeleitet (nicht aus Position-Spalte,
-    die FastF1 für SQ-Sessions nicht zuverlässig befüllt).
-    Klassifikationslogik: SQ3-Fahrer vor SQ2-only vor SQ1-only, innerhalb
-    jeder Gruppe nach Zeit aufsteigend sortiert — entspricht der offiziellen FIA-Klassifikation.
+    Verwendet dieselbe Laps-basierte Logik wie FastF1 intern für Qualifying-Sessions:
+    split_qualifying_sessions() → schnellste Zeit pro Segment → Sortierung SQ3→SQ2→SQ1.
     """
     print("   📡 Lade Sprint-Qualifying-Positionen für Grid Position...")
     try:
         session = fastf1.get_session(year, gp_name, "SQ")
         session.load(telemetry=False, weather=False, messages=False)
 
-        results = session.results.copy()
-        if results is None or results.empty:
-            print("   ⚠️ Sprint Qualifying: keine Ergebnisse geladen")
+        laps = session.laps
+        if laps.empty:
+            print("   ⚠️ Sprint Qualifying: keine Lap-Daten")
             return {}
 
-        sq3_drivers = []
-        sq2_drivers = []
-        sq1_drivers = []
+        segments = laps.pick_accurate().split_qualifying_sessions()
 
-        for _, row in results.iterrows():
-            abbr = str(row.get("Abbreviation", "")).strip()
-            if not abbr:
+        seg_best = {}  # abbr → {seg_idx: timedelta}
+        for seg_idx, seg_laps in enumerate(segments, 1):
+            if seg_laps is None or seg_laps.empty:
                 continue
+            try:
+                fastest = (
+                    seg_laps.pick_quicklaps()
+                    .loc[lambda df: ~df["LapTime"].isna()]
+                    .groupby("Driver")["LapTime"]
+                    .min()
+                )
+                for abbr, laptime in fastest.items():
+                    if abbr not in seg_best:
+                        seg_best[abbr] = {}
+                    seg_best[abbr][seg_idx] = laptime
+            except Exception:
+                pass
 
-            sq3 = row.get("SQ3", pd.NaT)
-            sq2 = row.get("SQ2", pd.NaT)
-            sq1 = row.get("SQ1", pd.NaT)
+        all_abbrs = [str(row.get("Abbreviation", "")).strip()
+                     for _, row in session.results.iterrows()
+                     if str(row.get("Abbreviation", "")).strip()]
 
-            sq3_valid = sq3 is not None and not (isinstance(sq3, float) and pd.isna(sq3)) and pd.notna(sq3)
-            sq2_valid = sq2 is not None and not (isinstance(sq2, float) and pd.isna(sq2)) and pd.notna(sq2)
-            sq1_valid = sq1 is not None and not (isinstance(sq1, float) and pd.isna(sq1)) and pd.notna(sq1)
+        sq3 = [(a, seg_best[a][3]) for a in all_abbrs if a in seg_best and 3 in seg_best[a]]
+        sq2 = [(a, seg_best[a][2]) for a in all_abbrs if a in seg_best and 3 not in seg_best[a] and 2 in seg_best[a]]
+        sq1 = [(a, seg_best[a][1]) for a in all_abbrs if a in seg_best and 3 not in seg_best[a] and 2 not in seg_best[a] and 1 in seg_best[a]]
+        no_time = [a for a in all_abbrs if a not in seg_best]
 
-            if sq3_valid:
-                sq3_drivers.append((abbr, sq3))
-            elif sq2_valid:
-                sq2_drivers.append((abbr, sq2))
-            elif sq1_valid:
-                sq1_drivers.append((abbr, sq1))
-            else:
-                # Kein Versuch → wird am Ende eingereiht (nach Startnummer)
-                number_raw = row.get("DriverNumber", 99)
-                try:
-                    number = int(float(number_raw))
-                except (TypeError, ValueError):
-                    number = 99
-                sq1_drivers.append((abbr, pd.Timedelta(hours=number)))  # Platzhalter-Zeit für Sortierung
+        sq3.sort(key=lambda x: x[1])
+        sq2.sort(key=lambda x: x[1])
+        sq1.sort(key=lambda x: x[1])
 
-        sq3_drivers.sort(key=lambda x: x[1])
-        sq2_drivers.sort(key=lambda x: x[1])
-        sq1_drivers.sort(key=lambda x: x[1])
-
-        ordered = sq3_drivers + sq2_drivers + sq1_drivers
-        sq_map = {abbr: pos for pos, (abbr, _) in enumerate(ordered, 1)}
+        ordered = [a for a, _ in sq3 + sq2 + sq1] + no_time
+        sq_map = {abbr: pos for pos, abbr in enumerate(ordered, 1)}
 
         print(f"   ✅ {len(sq_map)} Sprint-Qualifying-Positionen abgeleitet "
-              f"(SQ3: {len(sq3_drivers)}, SQ2: {len(sq2_drivers)}, SQ1: {len(sq1_drivers)})")
+              f"(SQ3: {len(sq3)}, SQ2: {len(sq2)}, SQ1: {len(sq1)}, ohne Zeit: {len(no_time)})")
         return sq_map
 
     except Exception as e:
@@ -506,16 +501,22 @@ def get_session_results(year, gp_name, session_display_name):
     except Exception as e:
         print(f"   ⚠️ Konnte Session-Datum nicht prüfen: {e} – fahre fort")
 
-    # Für Qualifying/Sprint Qualifying zusätzlich prüfen ob echte Zeiten vorliegen
-    # FIX: Sprint Qualifying speichert Zeiten in SQ1/SQ2/SQ3, nicht in Q1/Q2/Q3.
-    # Die alte Prüfung auf Q1 lieferte für SQ immer NaN → Session wurde fälschlicherweise
-    # als "noch keine Daten" eingestuft, obwohl SQ1 bereits befüllt war.
-    if session_display_name in ("Qualifying", "Sprint Qualifying"):
+    # Prüfen ob echte Zeitdaten vorliegen
+    if session_display_name == "Qualifying":
+        # Für normales Qualifying: Q1-Spalte prüfen (von FastF1 aus Laps befüllt)
         try:
-            col_name = "SQ1" if session_display_name == "Sprint Qualifying" else "Q1"
-            time_col = session.results.get(col_name, None)
-            if time_col is not None and pd.isna(time_col).all():
-                print(f"   ⏳ {session_display_name} hat noch keine Zeitdaten ({col_name} leer) → übersprungen")
+            q1_col = session.results.get("Q1", None)
+            if q1_col is not None and pd.isna(q1_col).all():
+                print(f"   ⏳ Qualifying hat noch keine Zeitdaten → übersprungen")
+                return None
+        except Exception:
+            pass
+    elif session_display_name == "Sprint Qualifying":
+        # FastF1 befüllt Q1/Q2/Q3 für SQ NICHT in session.results.
+        # Laps sind die einzig verlässliche Datenquelle für SQ.
+        try:
+            if session.laps.empty:
+                print(f"   ⏳ Sprint Qualifying hat noch keine Lap-Daten → übersprungen")
                 return None
         except Exception:
             pass
@@ -622,12 +623,77 @@ def get_session_results(year, gp_name, session_display_name):
                     "grid_pos":     None,
                 })
 
+        elif session_display_name == "Sprint Qualifying":
+            # ── Sprint Qualifying ─────────────────────────────────────────────
+            # FastF1 befüllt Position in session.results für SQ nicht zuverlässig.
+            # Stattdessen: Positionen aus Laps via split_qualifying_sessions() ableiten,
+            # exakt wie FastF1 es intern für normale Qualifying-Sessions macht.
+            #
+            # Segmentlogik: SQ3-Fahrer vor SQ2-only vor SQ1-only, innerhalb
+            # jeder Gruppe nach schnellster Zeit aufsteigend.
+            laps = session.laps
+            if laps.empty:
+                print("   ⚠️ Keine Lap-Daten für Sprint Qualifying")
+                return driver_results
+
+            try:
+                segments = laps.pick_accurate().split_qualifying_sessions()
+            except Exception as e:
+                print(f"   ⚠️ split_qualifying_sessions fehlgeschlagen: {e}")
+                return driver_results
+
+            seg_best = {}  # abbr → {seg_idx: timedelta}
+            for seg_idx, seg_laps in enumerate(segments, 1):
+                if seg_laps is None or seg_laps.empty:
+                    continue
+                try:
+                    fastest = (
+                        seg_laps.pick_quicklaps()
+                        .loc[lambda df: ~df["LapTime"].isna()]
+                        .groupby("Driver")["LapTime"]
+                        .min()
+                    )
+                    for abbr, laptime in fastest.items():
+                        if abbr not in seg_best:
+                            seg_best[abbr] = {}
+                        seg_best[abbr][seg_idx] = laptime
+                except Exception:
+                    pass
+
+            # Alle Fahrer aus session.results (inkl. solche ohne gezeitete Runde)
+            all_abbrs = [str(row.get("Abbreviation", "")).strip()
+                         for _, row in results_df.iterrows()
+                         if str(row.get("Abbreviation", "")).strip()]
+
+            sq3 = [(a, seg_best[a][3]) for a in all_abbrs if a in seg_best and 3 in seg_best[a]]
+            sq2 = [(a, seg_best[a][2]) for a in all_abbrs if a in seg_best and 3 not in seg_best[a] and 2 in seg_best[a]]
+            sq1 = [(a, seg_best[a][1]) for a in all_abbrs if a in seg_best and 3 not in seg_best[a] and 2 not in seg_best[a] and 1 in seg_best[a]]
+            no_time = [a for a in all_abbrs if a not in seg_best]
+
+            sq3.sort(key=lambda x: x[1])
+            sq2.sort(key=lambda x: x[1])
+            sq1.sort(key=lambda x: x[1])
+
+            ordered = [(a, t) for a, t in sq3 + sq2 + sq1]
+            ordered += [(a, None) for a in no_time]
+
+            for pos, (abbr, _) in enumerate(ordered, 1):
+                driver_results.append({
+                    "abbreviation": abbr,
+                    "position":     pos,
+                    "dnf":          False,
+                    "fastest_lap":  False,
+                    "points":       0,
+                    "grid_pos":     None,
+                })
+
+            print(f"   📊 SQ: {len(sq3)} in SQ3, {len(sq2)} nur SQ2, {len(sq1)} nur SQ1, "
+                  f"{len(no_time)} ohne Zeit")
+
         else:
-            # ── Qualifying / Sprint Qualifying ────────────────────────────────
-            # session.results enthält alle Fahrer, auch solche ohne Zeit (NaN).
-            # Fahrer MIT Zeit → offizielle Position aus session.results
-            # Fahrer OHNE Zeit → werden nach Startnummer aufsteigend angehängt
-            #                    (wie FIA-Klassifikation bei Zeitstrafen/kein Versuch)
+            # ── Qualifying ────────────────────────────────────────────────────
+            # Fahrer MIT Position → aus session.results (FastF1 befüllt Q1/Q2/Q3 aus Laps)
+            # Fahrer OHNE Position → nach Startnummer aufsteigend angehängt
 
             timed_drivers   = []
             no_time_drivers = []
@@ -644,7 +710,6 @@ def get_session_results(year, gp_name, session_display_name):
                     position = None
                     has_position = False
 
-                # Startnummer aus FastF1 als Fallback falls Fahrer nicht in driver_map
                 ff1_number_raw = row.get("DriverNumber", None)
                 try:
                     ff1_number = int(float(ff1_number_raw)) if ff1_number_raw is not None else 99
@@ -658,7 +723,7 @@ def get_session_results(year, gp_name, session_display_name):
                     "fastest_lap":  False,
                     "points":       0,
                     "grid_pos":     None,
-                    "_ff1_number":  ff1_number,  # intern für Sortierung, wird nicht nach Notion geschrieben
+                    "_ff1_number":  ff1_number,
                 }
 
                 if has_position:
@@ -666,14 +731,9 @@ def get_session_results(year, gp_name, session_display_name):
                 else:
                     no_time_drivers.append(entry)
 
-            # Timed: nach offizieller Position sortieren
             timed_drivers.sort(key=lambda d: d["position"])
-
-            # No-time: nach FastF1 DriverNumber sortieren (driver_map hier nicht verfügbar)
-            # process_session() überschreibt diese Positionen später mit driver_map-Nummern
             no_time_drivers.sort(key=lambda d: d["_ff1_number"])
 
-            # Positionen der no-time-Fahrer: fortlaufend nach den timed-Fahrern
             last_timed_pos = timed_drivers[-1]["position"] if timed_drivers else 0
             for i, d in enumerate(no_time_drivers, 1):
                 d["position"] = last_timed_pos + i
