@@ -392,6 +392,28 @@ def get_qualifying_positions(year, gp_name):
         return {}
 
 
+def get_sprint_qualifying_positions(year, gp_name):
+    """
+    Gibt ein Dict zurück: Fahrerkürzel → SQ-Position (aus dem Sprint Qualifying).
+    Wird verwendet um Grid Position beim Sprint-Eintrag zu setzen.
+    """
+    print("   📡 Lade Sprint-Qualifying-Positionen für Grid Position...")
+    try:
+        session = fastf1.get_session(year, gp_name, "SQ")
+        session.load(telemetry=False, weather=False, messages=False)
+        sq_map = {}
+        for _, row in session.results.iterrows():
+            abbr = row.get("Abbreviation", "")
+            pos  = row.get("Position", None)
+            if abbr and pos and not pd.isna(pos):
+                sq_map[abbr] = int(pos)
+        print(f"   ✅ {len(sq_map)} Sprint-Qualifying-Positionen geladen")
+        return sq_map
+    except Exception as e:
+        print(f"   ⚠️ Sprint-Qualifying-Positionen konnten nicht geladen werden: {e}")
+        return {}
+
+
 def get_session_results(year, gp_name, session_display_name):
     """
     Lädt FastF1-Daten für eine Session und gibt eine Liste von Dicts zurück.
@@ -714,11 +736,13 @@ def upsert_entry(results_db_id, driver_map, weekend_page_id,
 
 def process_session(year, gp_name, session_display_name,
                     results_db_id, driver_map, weekend_page_id,
-                    qualifying_positions=None, constructors_map=None, teams_name_map=None,
+                    qualifying_positions=None, sprint_qualifying_positions=None,
+                    constructors_map=None, teams_name_map=None,
                     existing_cache=None):
     if constructors_map is None: constructors_map = {}
     if teams_name_map is None: teams_name_map = {}
     if existing_cache is None: existing_cache = {}
+    if sprint_qualifying_positions is None: sprint_qualifying_positions = {}
     """Verarbeitet eine komplette Session und schreibt alle Fahrer in Notion."""
     print(f"\n   ── {session_display_name} ──")
 
@@ -754,6 +778,11 @@ def process_session(year, gp_name, session_display_name,
     if session_display_name == "Race" and qualifying_positions:
         for d in driver_results:
             d["grid_pos"] = qualifying_positions.get(d["abbreviation"])
+
+    # Grid Position für Sprint aus Sprint Qualifying setzen
+    if session_display_name == "Sprint" and sprint_qualifying_positions:
+        for d in driver_results:
+            d["grid_pos"] = sprint_qualifying_positions.get(d["abbreviation"])
 
     success = 0
     for driver_data in driver_results:
@@ -796,6 +825,9 @@ def process_race_weekend(year, gp_name, is_sprint_weekend,
     # Qualifying-Positionen vorab laden (für Grid Position beim Race)
     qualifying_positions = get_qualifying_positions(year, gp_name)
 
+    # Sprint-Qualifying-Positionen laden wenn Sprint-Wochenende (für Grid Position beim Sprint)
+    sprint_qualifying_positions = get_sprint_qualifying_positions(year, gp_name) if is_sprint_weekend else {}
+
     # Existierende Einträge einmal vorladen (Fix 1: ersetzt 110 Einzelabfragen)
     existing_cache = load_existing_entries_for_weekend(results_db_id, weekend_page_id)
 
@@ -809,6 +841,7 @@ def process_race_weekend(year, gp_name, is_sprint_weekend,
                 year, gp_name, session_display_name,
                 results_db_id, driver_map, weekend_page_id,
                 qualifying_positions=qualifying_positions,
+                sprint_qualifying_positions=sprint_qualifying_positions,
                 constructors_map=constructors_map,
                 teams_name_map=teams_name_map,
                 existing_cache=existing_cache
