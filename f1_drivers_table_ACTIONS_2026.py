@@ -168,7 +168,7 @@ def get_existing_entries(db_id):
 def build_properties(driver, points):
     """Baut das Notion-Properties-Dict für einen Fahrereintrag auf."""
     props = {
-        "Name":  {"title": [{"text": {"content": driver}}]},
+        "Driver":  {"title": [{"text": {"content": driver}}]},
         "Total": {"number": sum(points)}
     }
 
