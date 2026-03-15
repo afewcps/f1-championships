@@ -1,0 +1,83 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Prediction Accuracy</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      margin: 0;
+      background-color: #191919;
+    }
+    #chartContainer {
+      width: 300px;
+      height: 300px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    canvas {
+      background-color: #191919;
+    }
+  </style>
+</head>
+<body>
+  <div id="chartContainer">
+    <canvas id="accuracyChart"></canvas>
+  </div>
+  <script>
+    const accuracy = 66.7;
+    const correct = 2;
+    const incorrect = 1;
+    const ctx = document.getElementById('accuracyChart').getContext('2d');
+
+    new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Correct', 'Incorrect'],
+        datasets: [{
+          data: [correct, incorrect],
+          backgroundColor: ['#ffffff', 'rgba(255,255,255,0.1)'],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        cutout: '75%',
+        responsive: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            enabled: true,
+            callbacks: {
+              label: function(context) {
+                let label = context.label || '';
+                let value = context.parsed;
+                return label + ': ' + value;
+              }
+            }
+          }
+        }
+      },
+      plugins: [{
+        id: 'centerText',
+        beforeDraw: (chart) => {
+          const { ctx, chartArea: { width, height } } = chart;
+          ctx.save();
+          // "Predictions" oben
+          ctx.font = '16px Arial';
+          ctx.fillStyle = '#ffffff';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('Predictions', width / 2, height / 2 - 20);
+
+          // Prozentzahl darunter
+          ctx.font = 'bold 32px Arial';
+          ctx.fillStyle = '#ffffff';
+          ctx.fillText(accuracy + '%', width / 2, height / 2 + 10);
+        }
+      }]
+    });
+  </script>
+</body>
+</html>
