@@ -1,4 +1,4 @@
-name: F1 Session Results 2026
+name: F1 Session Results
 
 on:
   workflow_dispatch:
