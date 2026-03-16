@@ -168,17 +168,12 @@ def get_existing_entries(db_id):
 def build_properties(driver, points):
     """Baut das Notion-Properties-Dict für einen Fahrereintrag auf."""
     props = {
-        "Driver":  {"title": [{"text": {"content": driver}}]},
-        "Total": {"number": sum(points)}
+        "Driver": {"title": [{"text": {"content": driver}}]},
+        "Total":  {"number": sum(points)}
     }
 
     for i, location in enumerate(RACE_LOCATIONS):
         props[location] = {"number": points[i] if points[i] > 0 else None}
-
-    # Driver-Relation zur Drivers 2026 DB setzen
-    page_id = DRIVER_PAGE_IDS.get(driver)
-    if page_id:
-        props["Driver"] = {"relation": [{"id": page_id}]}
 
     return props
 
