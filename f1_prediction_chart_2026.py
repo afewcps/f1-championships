@@ -140,7 +140,7 @@ def generate_html(accuracy, correct_count, incorrect_count):
 </body>
 </html>
 """
-    with open("prediction-chart-2026.html", "w", encoding="utf-8") as f:
+    with open("f1_prediction_chart_2026.html", "w", encoding="utf-8") as f:
         f.write(html_content)
 
 
