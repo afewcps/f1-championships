@@ -3,7 +3,7 @@ import json
 
 # Rennkalender 2026 – Reihenfolge = Rundennummern 1–24
 RACE_LOCATIONS = [
-    "Australia", "China", "Japan",  "Miami",
+    "Australia", "China", "Japan", "Bahrain", "Saudi Arabia", "Miami",
     "Canada", "Monaco", "Barcelona", "Austria", "Great Britain", "Belgium",
     "Hungary", "Netherlands", "Italy", "Spain", "Azerbaijan", "Singapore",
     "United States", "Mexico", "Brazil", "Las Vegas", "Qatar", "Abu Dhabi"
@@ -129,7 +129,7 @@ def write_json(cumulative, total):
         "backgroundColor": "#191919"
     }
 
-    with open("f1_drivers_chart.json", "w", encoding="utf-8") as f:
+    with open("driver_chart.json", "w", encoding="utf-8") as f:
         json.dump(chart, f, ensure_ascii=False, indent=2)
 
     print(f"✅ driver_chart.json geschrieben – {len(sorted_drivers)} Fahrer, {len(RACE_LOCATIONS)} Runden")
