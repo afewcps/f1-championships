@@ -52,7 +52,7 @@ def calculate_accuracy(predictions):
 # Schritt 3: HTML mit Chart.js generieren
 def generate_html(accuracy, correct_count, incorrect_count):
     percent = round(accuracy * 100, 1)
-    ring_color = "#ffffff"
+    ring_color = "#cd4945"
     background_ring = "rgba(255,255,255,0.1)"
     text_color = "#ffffff"
 
