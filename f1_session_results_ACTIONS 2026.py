@@ -56,8 +56,8 @@ F1_2026_CALENDAR = [
     {"name": "Australian Grand Prix",    "date": "2026-03-08", "sprint": False},
     {"name": "Chinese Grand Prix",       "date": "2026-03-15", "sprint": True},
     {"name": "Japanese Grand Prix",      "date": "2026-03-29", "sprint": False},
-    {"name": "Bahrain Grand Prix",       "date": "2026-04-12", "sprint": False},
-    {"name": "Saudi Arabian Grand Prix", "date": "2026-04-19", "sprint": False},
+    # {"name": "Bahrain Grand Prix",       "date": "2026-04-12", "sprint": False},  # 2026: abgesagt – regionaler Konflikt; für 2027 wieder einkommentieren
+    # {"name": "Saudi Arabian Grand Prix", "date": "2026-04-19", "sprint": False},  # 2026: abgesagt – regionaler Konflikt; für 2027 wieder einkommentieren
     {"name": "Miami Grand Prix",         "date": "2026-05-03", "sprint": True},
     {"name": "Canadian Grand Prix",      "date": "2026-05-25", "sprint": True},
     {"name": "Monaco Grand Prix",        "date": "2026-06-07", "sprint": False},
@@ -85,8 +85,8 @@ GP_COUNTRY_CODE = {
     "Australian Grand Prix":         "AUS",
     "Chinese Grand Prix":            "CHN",
     "Japanese Grand Prix":           "JPN",
-    "Bahrain Grand Prix":            "BHR",
-    "Saudi Arabian Grand Prix":      "SAU",
+    # "Bahrain Grand Prix":            "BHR",  # 2026: abgesagt – regionaler Konflikt; für 2027 wieder einkommentieren
+    # "Saudi Arabian Grand Prix":      "SAU",  # 2026: abgesagt – regionaler Konflikt; für 2027 wieder einkommentieren
     "Miami Grand Prix":              "MIA",
     "Canadian Grand Prix":           "CAN",
     "Monaco Grand Prix":             "MON",
@@ -115,8 +115,8 @@ GP_WEEKEND_NAME = {
     "Australian Grand Prix":         "Australia",
     "Chinese Grand Prix":            "China",
     "Japanese Grand Prix":           "Japan",
-    "Bahrain Grand Prix":            "Bahrain",
-    "Saudi Arabian Grand Prix":      "Saudi Arabia",
+    # "Bahrain Grand Prix":            "Bahrain",        # 2026: abgesagt – regionaler Konflikt; für 2027 wieder einkommentieren
+    # "Saudi Arabian Grand Prix":      "Saudi Arabia",   # 2026: abgesagt – regionaler Konflikt; für 2027 wieder einkommentieren
     "Miami Grand Prix":              "Miami",
     "Canadian Grand Prix":           "Canada",
     "Monaco Grand Prix":             "Monaco",

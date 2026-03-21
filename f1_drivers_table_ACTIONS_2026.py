@@ -9,7 +9,9 @@ NOTION_TOKEN = os.getenv("NOTION_TOKEN")
 DATABASE_ID  = "3166839379ed81f8bc7dc0999f1f8e6d"  # Drivers Championship 2026
 
 RACE_LOCATIONS = [
-    "Australia", "China", "Japan", "Bahrain", "Saudi Arabia", "Miami",
+    "Australia", "China", "Japan",
+    # "Bahrain", "Saudi Arabia",  # 2026: abgesagt – regionaler Konflikt; für 2027 wieder einkommentieren
+    "Miami",
     "Canada", "Monaco", "Barcelona", "Austria", "Great Britain", "Belgium",
     "Hungary", "Netherlands", "Italy", "Spain", "Azerbaijan", "Singapore",
     "United States", "Mexico", "Brazil", "Las Vegas", "Qatar", "Abu Dhabi"
