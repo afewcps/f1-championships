@@ -373,7 +373,7 @@ function tick() {
   document.getElementById('pit-status').textContent  = live ? 'SESSION LIVE' : 'NEXT EVENT';
   document.getElementById('pit-dot').style.display   = live ? 'block' : 'none';
 
-  document.getElementById('pit-next').textContent = next
+  document.getElementById('pit-next').textContent = (next && next.session !== 'Practice 1')
     ? 'UP NEXT → ' + next.session
     : '';
 
