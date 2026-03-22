@@ -23,7 +23,7 @@ jobs:
           
 
       - name: Run database-script.py
-        run: python f1_drivers_chart_2026.py
+        run: python f1_drivers_chart.py
 
       - name: Commit and push changes
         run: |
