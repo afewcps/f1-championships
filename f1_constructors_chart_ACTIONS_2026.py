@@ -90,6 +90,14 @@ def build_cumulative_standings():
                         if team not in running_total:
                             running_total[team] = 0
                             cumulative[team]    = [0] * round_idx
+                else:
+                    # Sprint hat stattgefunden, Rennen noch nicht → nur Sprint-Punkte eintragen
+                    sprint_pts = get_sprint_points(round_num)
+                    for team, pts in sprint_pts.items():
+                        round_pts[team] = round_pts.get(team, 0) + pts
+                        if team not in running_total:
+                            running_total[team] = 0
+                            cumulative[team]    = [0] * round_idx
         except Exception:
             pass
 

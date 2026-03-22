@@ -81,35 +81,39 @@ def get_weekend_points():
     race_happened  = [False] * len(RACE_LOCATIONS)
 
     for round_num in range(1, len(RACE_LOCATIONS) + 1):
-        if not check_if_race_happened(round_num):
+        race_has_results = check_if_race_happened(round_num)
+        sprint_points    = get_sprint_points(round_num)
+
+        # Runde komplett überspringen wenn weder Rennen noch Sprint stattgefunden hat
+        if not race_has_results and not sprint_points:
             continue
 
         race_happened[round_num - 1] = True
-        url = f"{BASE_URL}{round_num}/results.json"
-        try:
-            r = requests.get(url, timeout=10)
-            if r.status_code != 200:
-                continue
-        except Exception:
-            continue
-
-        races = r.json()['MRData']['RaceTable']['Races']
         current_points = {team: 0 for team in TEAMS_NOTION}
-        sprint_points  = get_sprint_points(round_num)
 
-        if races:
-            for res in races[0]['Results']:
-                api_team    = res['Constructor']['name']
-                notion_team = API_TO_NOTION_NAME.get(api_team, api_team)
-                if notion_team in current_points:
-                    current_points[notion_team] += int(float(res['points']))
+        if race_has_results:
+            url = f"{BASE_URL}{round_num}/results.json"
+            try:
+                r = requests.get(url, timeout=10)
+                if r.status_code != 200:
+                    pass  # Sprint-Punkte werden trotzdem unten eingetragen
+                else:
+                    races = r.json()['MRData']['RaceTable']['Races']
+                    if races:
+                        for res in races[0]['Results']:
+                            api_team    = res['Constructor']['name']
+                            notion_team = API_TO_NOTION_NAME.get(api_team, api_team)
+                            if notion_team in current_points:
+                                current_points[notion_team] += int(float(res['points']))
+            except Exception:
+                pass  # Sprint-Punkte werden trotzdem unten eingetragen
 
-            for notion_team, pts in sprint_points.items():
-                if notion_team in current_points:
-                    current_points[notion_team] += pts
+        for notion_team, pts in sprint_points.items():
+            if notion_team in current_points:
+                current_points[notion_team] += pts
 
-            for team in weekend_points:
-                weekend_points[team][round_num - 1] = current_points.get(team, 0)
+        for team in weekend_points:
+            weekend_points[team][round_num - 1] = current_points.get(team, 0)
 
     return weekend_points, race_happened
 

@@ -102,6 +102,14 @@ def build_cumulative_standings():
                         if name not in running_total:
                             running_total[name] = 0
                             cumulative[name] = [0] * round_idx  # vergangene Runden = 0
+                else:
+                    # Sprint hat stattgefunden, Rennen noch nicht → nur Sprint-Punkte eintragen
+                    sprint_pts = get_sprint_points(round_num)
+                    for name, pts in sprint_pts.items():
+                        race_pts_this_round[name] = pts
+                        if name not in running_total:
+                            running_total[name] = 0
+                            cumulative[name] = [0] * round_idx
         except Exception:
             pass  # Netzwerkfehler → Runde als nicht gefahren behandeln
 

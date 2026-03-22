@@ -125,6 +125,13 @@ def get_weekend_points():
 
                 if weekend_points[notion_name][round_num - 1] == 0:
                     weekend_points[notion_name][round_num - 1] = pts
+        elif sprint_points:
+            # Sprint hat stattgefunden, Rennen noch nicht → nur Sprint-Punkte eintragen
+            for notion_name, pts in sprint_points.items():
+                if notion_name not in weekend_points:
+                    weekend_points[notion_name] = [0] * len(RACE_LOCATIONS)
+                if weekend_points[notion_name][round_num - 1] == 0:
+                    weekend_points[notion_name][round_num - 1] = pts
 
     return weekend_points
 
