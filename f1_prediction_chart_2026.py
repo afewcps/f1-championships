@@ -140,7 +140,7 @@ def generate_html(accuracy, correct_count, incorrect_count):
 </body>
 </html>
 """
-    with open("f1_prediction_chart_2026.html", "w", encoding="utf-8") as f:
+    with open("f1_prediction_chart.html", "w", encoding="utf-8") as f:
         f.write(html_content)
 
 
@@ -153,4 +153,4 @@ if __name__ == "__main__":
     incorrect_count = int(len(predictions) * 3 - correct_count)
 
     generate_html(accuracy, correct_count, incorrect_count)
-    print(f"✅ Prediction Accuracy Chart erstellt ({round(accuracy*100, 1)}%) → index.html")
+    print(f"✅ Prediction Accuracy Chart erstellt ({round(accuracy*100, 1)}%) → f1_prediction_chart.html")
