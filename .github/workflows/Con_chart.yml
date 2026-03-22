@@ -23,7 +23,7 @@ jobs:
           
 
       - name: Run script
-        run: python f1_constructors_chart_ACTIONS_2026.py
+        run: python f1_constructors_chart.py
 
       - name: Commit and push changes
         run: |
