@@ -19,8 +19,8 @@
 <body>
   <canvas id="chart"></canvas>
   <script>
-    console.log("🚀 Lade driver_chart.json...");
-    fetch("driver_chart.json")
+    console.log("🚀 Lade f1_drivers_chart.json...");
+    fetch("f1_drivers_chart.json")
       .then(response => {
         if (!response.ok) throw new Error("Datei nicht gefunden!");
         return response.json();
