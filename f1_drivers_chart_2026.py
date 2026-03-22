@@ -139,10 +139,10 @@ def write_json(cumulative, total):
         "backgroundColor": "#191919"
     }
 
-    with open("driver_chart.json", "w", encoding="utf-8") as f:
+    with open("f1_drivers_chart.json", "w", encoding="utf-8") as f:
         json.dump(chart, f, ensure_ascii=False, indent=2)
 
-    print(f"✅ driver_chart.json geschrieben – {len(sorted_drivers)} Fahrer, {len(RACE_LOCATIONS)} Runden")
+    print(f"✅ f1_drivers_chart.json geschrieben – {len(sorted_drivers)} Fahrer, {len(RACE_LOCATIONS)} Runden")
 
     # Konsolenausgabe zur Kontrolle
     print("\nStandings:")
