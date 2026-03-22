@@ -21,7 +21,7 @@ jobs:
         NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
       run: |
         echo "🏗️ Updating Constructors Championship for..."
-        python f1_constructors_table_ACTIONS_2026.py
+        python f1_constructors_table.py
     - name: Log completion
       if: success()
       run: echo "✅ Constructors Championship updated at $(date)"
