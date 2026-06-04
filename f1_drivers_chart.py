@@ -64,7 +64,7 @@ def build_cumulative_standings():
     Baut die kumulativen Standings auf.
 
     Rückgabe:
-        per_round_cumulative: {Fahrername: [kumulPunkte_R1, ..., kumulPunkte_R24]}
+        per_round_cumulative: {Fahrername: [kumulPunkte_R1, ..., kumulPunkte_R22]}
         total:                {Fahrername: Gesamtpunkte}
 
     Logik:
@@ -72,18 +72,21 @@ def build_cumulative_standings():
     - Für jede Runde: hole race results + sprint results.
       Wenn keine Ergebnisse (Rennen noch nicht gefahren): alle Fahrer
       behalten ihren bisherigen Gesamtstand (flaches Fortschreiben).
-    - Am Ende hat jeder Fahrer exakt 24 Einträge.
+    - Am Ende hat jeder Fahrer exakt 22 Einträge.
     """
     num_races = len(RACE_LOCATIONS)
 
     # Laufende Gesamtpunkte – wird Runde für Runde akkumuliert
     running_total = {driver: 0 for driver in TEAM_COLORS}
 
-    # Ergebnisliste: pro Fahrer 24 Einträge (kumulativ)
+    # Ergebnisliste: pro Fahrer 22 Einträge (kumulativ)
     cumulative = {driver: [] for driver in TEAM_COLORS}
 
     for round_idx, location in enumerate(RACE_LOCATIONS):
-        round_num = round_idx + 1
+        # API-Runden-Korrektur wegen der Absagen in der 2026er Saison:
+        # Index 0,1,2 (Australien, China, Japan) -> API-Runde 1,2,3
+        # Ab Index 3 (Miami) -> API-Runde 6,7,8... (da Runden 4 und 5 fehlen)
+        round_num = round_idx + 1 if round_idx < 3 else round_idx + 3
 
         # Race results holen
         race_pts_this_round = {}

@@ -103,7 +103,12 @@ def get_weekend_points():
     """
     weekend_points = {}
 
-    for round_num in range(1, len(RACE_LOCATIONS) + 1):
+    for round_idx, location in enumerate(RACE_LOCATIONS):
+        # API-Runden-Korrektur wegen der Absagen in der 2026er Saison:
+        # Index 0,1,2 (Australien, China, Japan) -> API-Runde 1,2,3
+        # Ab Index 3 (Miami) -> API-Runde 6,7,8... (da Runden 4 und 5 fehlen)
+        round_num = round_idx + 1 if round_idx < 3 else round_idx + 3
+
         try:
             r = requests.get(f"{BASE_URL}{round_num}/results.json", timeout=10)
             if r.status_code != 200:
@@ -123,15 +128,15 @@ def get_weekend_points():
                 if notion_name not in weekend_points:
                     weekend_points[notion_name] = [0] * len(RACE_LOCATIONS)
 
-                if weekend_points[notion_name][round_num - 1] == 0:
-                    weekend_points[notion_name][round_num - 1] = pts
+                if weekend_points[notion_name][round_idx] == 0:
+                    weekend_points[notion_name][round_idx] = pts
         elif sprint_points:
             # Sprint hat stattgefunden, Rennen noch nicht → nur Sprint-Punkte eintragen
             for notion_name, pts in sprint_points.items():
                 if notion_name not in weekend_points:
                     weekend_points[notion_name] = [0] * len(RACE_LOCATIONS)
-                if weekend_points[notion_name][round_num - 1] == 0:
-                    weekend_points[notion_name][round_num - 1] = pts
+                if weekend_points[notion_name][round_idx] == 0:
+                    weekend_points[notion_name][round_idx] = pts
 
     return weekend_points
 

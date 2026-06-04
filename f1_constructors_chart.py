@@ -68,7 +68,10 @@ def build_cumulative_standings():
     cumulative    = {team: [] for team in ALL_TEAMS}
 
     for round_idx, _ in enumerate(RACE_LOCATIONS):
-        round_num  = round_idx + 1
+        # API-Runden-Korrektur wegen der Absagen in der 2026er Saison:
+        # Index 0,1,2 (Australien, China, Japan) -> API-Runde 1,2,3
+        # Ab Index 3 (Miami) -> API-Runde 6,7,8... (da Runden 4 und 5 fehlen)
+        round_num = round_idx + 1 if round_idx < 3 else round_idx + 3
         round_pts  = {}
 
         try:
