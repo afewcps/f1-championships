@@ -80,7 +80,8 @@ def get_weekend_points():
     weekend_points = {team: [0] * len(RACE_LOCATIONS) for team in TEAMS_NOTION}
     race_happened  = [False] * len(RACE_LOCATIONS)
 
-    for round_num in range(1, len(RACE_LOCATIONS) + 1):
+    # Range auf 26 erhöht, um alle echten API-Runden (bis zu 24) sicher abzudecken
+    for round_num in range(1, 26):
         race_has_results = check_if_race_happened(round_num)
         sprint_points    = get_sprint_points(round_num)
 
@@ -88,32 +89,53 @@ def get_weekend_points():
         if not race_has_results and not sprint_points:
             continue
 
-        race_happened[round_num - 1] = True
-        current_points = {team: 0 for team in TEAMS_NOTION}
-
-        if race_has_results:
-            url = f"{BASE_URL}{round_num}/results.json"
-            try:
-                r = requests.get(url, timeout=10)
-                if r.status_code != 200:
-                    pass  # Sprint-Punkte werden trotzdem unten eingetragen
-                else:
-                    races = r.json()['MRData']['RaceTable']['Races']
-                    if races:
-                        for res in races[0]['Results']:
-                            api_team    = res['Constructor']['name']
-                            notion_team = API_TO_NOTION_NAME.get(api_team, api_team)
+        # Dynamisches Matching der API-Daten zum richtigen Notion-Spalten-Index
+        race_idx = -1
+        url = f"{BASE_URL}{round_num}/results.json" if race_has_results else f"{BASE_URL}{round_num}/sprint.json"
+        
+        try:
+            r = requests.get(url, timeout=10)
+            if r.status_code == 200:
+                races = r.json()['MRData']['RaceTable']['Races']
+                if races:
+                    race_info = races[0]
+                    r_name = race_info['raceName'].lower()
+                    r_country = race_info['Circuit']['Location']['country'].lower()
+                    r_locality = race_info['Circuit']['Location']['locality'].lower()
+                    
+                    # Suche den passenden Index in deiner RACE_LOCATIONS Liste
+                    for idx, loc in enumerate(RACE_LOCATIONS):
+                        loc_lower = loc.lower()
+                        if loc_lower == "great britain" and (r_country == "uk" or "british" in r_name):
+                            race_idx = idx
+                            break
+                        elif loc_lower == "united states" and (r_country == "usa" or "united states" in r_name) and "miami" not in r_name and "las vegas" not in r_name:
+                            race_idx = idx
+                            break
+                        elif loc_lower in r_country or loc_lower in r_locality or loc_lower in r_name:
+                            race_idx = idx
+                            break
+                    
+                    # Wenn die Renn-Location in deiner Liste existiert, Punkte eintragen
+                    if race_idx != -1:
+                        race_happened[race_idx] = True
+                        current_points = {team: 0 for team in TEAMS_NOTION}
+                        
+                        if race_has_results and 'Results' in race_info:
+                            for res in race_info['Results']:
+                                api_team    = res['Constructor']['name']
+                                notion_team = API_TO_NOTION_NAME.get(api_team, api_team)
+                                if notion_team in current_points:
+                                    current_points[notion_team] += int(float(res['points']))
+                                    
+                        for notion_team, pts in sprint_points.items():
                             if notion_team in current_points:
-                                current_points[notion_team] += int(float(res['points']))
-            except Exception:
-                pass  # Sprint-Punkte werden trotzdem unten eingetragen
-
-        for notion_team, pts in sprint_points.items():
-            if notion_team in current_points:
-                current_points[notion_team] += pts
-
-        for team in weekend_points:
-            weekend_points[team][round_num - 1] = current_points.get(team, 0)
+                                current_points[notion_team] += pts
+                                
+                        for team in weekend_points:
+                            weekend_points[team][race_idx] = current_points.get(team, 0)
+        except Exception:
+            pass
 
     return weekend_points, race_happened
 
