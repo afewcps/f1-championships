@@ -68,7 +68,7 @@ def build_cumulative_standings():
         total:                {Fahrername: Gesamtpunkte}
 
     Logik:
-    - Alle 22 bekannten Fahrer starten mit 0.
+    - Alle bekannten Fahrer starten mit 0.
     - Für jede Runde: hole race results + sprint results.
       Wenn keine Ergebnisse (Rennen noch nicht gefahren): alle Fahrer
       behalten ihren bisherigen Gesamtstand (flaches Fortschreiben).
@@ -83,10 +83,9 @@ def build_cumulative_standings():
     cumulative = {driver: [] for driver in TEAM_COLORS}
 
     for round_idx, location in enumerate(RACE_LOCATIONS):
-        # API-Runden-Korrektur wegen der Absagen in der 2026er Saison:
-        # Index 0,1,2 (Australien, China, Japan) -> API-Runde 1,2,3
-        # Ab Index 3 (Miami) -> API-Runde 6,7,8... (da Runden 4 und 5 fehlen)
-        round_num = round_idx + 1 if round_idx < 3 else round_idx + 3
+        # Die API führt die verbleibenden Rennen nach den Absagen nahtlos fort.
+        # Daher entspricht die API-Rundennummer exakt dem Schleifenindex + 1.
+        round_num = round_idx + 1
 
         # Race results holen
         race_pts_this_round = {}

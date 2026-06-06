@@ -61,17 +61,16 @@ def get_sprint_points(round_num):
 def build_cumulative_standings():
     """
     Baut kumulative Konstrukteurs-Standings auf.
-    Alle 11 Teams starten als Seed mit 0 – die JSON enthält immer alle Teams.
+    Alle bekannten Teams starten als Seed mit 0 – die JSON enthält immer alle Teams.
     Noch nicht gefahrene Runden werden mit dem letzten Stand fortgeschrieben.
     """
-    running_total = {team: 0 for team in ALL_TEAMS}
-    cumulative    = {team: [] for team in ALL_TEAMS}
+    running_total = {team: 0 for team in TEAM_COLORS}
+    cumulative    = {team: [] for team in TEAM_COLORS}
 
     for round_idx, _ in enumerate(RACE_LOCATIONS):
-        # API-Runden-Korrektur wegen der Absagen in der 2026er Saison:
-        # Index 0,1,2 (Australien, China, Japan) -> API-Runde 1,2,3
-        # Ab Index 3 (Miami) -> API-Runde 6,7,8... (da Runden 4 und 5 fehlen)
-        round_num = round_idx + 1 if round_idx < 3 else round_idx + 3
+        # Die API führt die verbleibenden Rennen nach den Absagen nahtlos fort.
+        # Daher entspricht die API-Rundennummer exakt dem Schleifenindex + 1.
+        round_num = round_idx + 1
         round_pts  = {}
 
         try:
