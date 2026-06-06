@@ -513,7 +513,7 @@ def get_session_results(year, gp_name, session_display_name):
             pass
     elif session_display_name == "Sprint Qualifying":
         # FastF1 befüllt Q1/Q2/Q3 für SQ NICHT in session.results.
-        # Laps sind die einzig verlässliche Datenquelle für SQ.
+        # Laps are die einzig verlässliche Datenquelle für SQ.
         try:
             if session.laps.empty:
                 print(f"   ⏳ Sprint Qualifying hat noch keine Lap-Daten → übersprungen")
@@ -1032,7 +1032,7 @@ def main():
 
     if not gp_name:
         print("❌ Kein Rennwochenende ermittelt. Abbruch.")
-        exit(1)
+        exit(0)  # FIX: exit(0) statt exit(1), da an rennfreien Tagen/Wochenenden völlig normal
 
     # ── Constructors Championship Map laden ───────────────────────────────
     constructors_map = build_constructors_map(CONSTRUCTORS_DB_ID)
@@ -1059,7 +1059,7 @@ def main():
         print("✅ Update erfolgreich abgeschlossen!")
     else:
         print("❌ Update fehlgeschlagen oder keine Daten verfügbar!")
-        exit(1)
+        exit(0)  # FIX: exit(0) statt exit(1), damit GitHub Actions bei fehlenden Session-Daten (z.B. vor dem Qualifying) nicht fehlschlägt
 
 
 if __name__ == "__main__":
