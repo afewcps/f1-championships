@@ -4,6 +4,7 @@ import requests
 import json
 import traceback
 import os
+import time
 from datetime import datetime
 
 # =============================================================================
@@ -770,14 +771,11 @@ def upsert_entry(results_db_id, driver_map, weekend_page_id,
         return False
 
     driver_page_id = driver_entry["driver_id"]
-    # team_page_id muss die ID aus Constructors Championship 2026 sein,
-    # weil Session Results → Team auf diese DB zeigt.
     teams_db_id   = driver_entry.get("teams_db_id")
     team_page_id  = constructors_map.get(teams_name_map.get(teams_db_id, ""), None)
 
     notion_session_type = SESSION_NOTION_TYPE.get(session_display_name, session_display_name)
 
-    # Properties für Notion aufbauen
     properties = {
         "Entry": {
             "title": [{"text": {"content": eintrag_title}}]
@@ -791,7 +789,6 @@ def upsert_entry(results_db_id, driver_map, weekend_page_id,
         "Session Type": {
             "select": {"name": notion_session_type}
         },
-        # Race + Sprint → Classification (für Rollup-Durchschnitt), alle anderen → Position
         **({"Classification": {"number": driver_data["position"]}}
            if session_display_name in ("Race", "Sprint")
            else {"Position": {"number": driver_data["position"]}}),
@@ -806,17 +803,14 @@ def upsert_entry(results_db_id, driver_map, weekend_page_id,
         },
     }
 
-    # Team-Relation setzen wenn vorhanden
     if team_page_id:
         properties["Team"] = {"relation": [{"id": team_page_id}]}
     else:
         print(f"      ⚠️ Kein Team für Fahrer '{abbr}' in Drivers-DB hinterlegt")
 
-    # Grid Position nur setzen wenn vorhanden
     if driver_data.get("grid_pos") is not None:
         properties["Grid Position"] = {"number": driver_data["grid_pos"]}
 
-    # Upsert: Cache-Lookup statt einzelner API-Abfrage
     existing_id = existing_cache.get(eintrag_title)
 
     try:
@@ -827,9 +821,15 @@ def upsert_entry(results_db_id, driver_map, weekend_page_id,
             )
             print(f"      🔄 Aktualisiert: {eintrag_title}")
         else:
-            notion_post(
+            new_page = notion_post(
                 "https://api.notion.com/v1/pages",
                 {"parent": {"database_id": results_db_id}, "properties": properties}
+            )
+            # Dummy-Update: Relation neu schreiben um Notion's Relation-Index-Cache zu fixen
+            time.sleep(1)
+            notion_patch(
+                f"https://api.notion.com/v1/pages/{new_page['id']}",
+                {"properties": {"Weekend": {"relation": [{"id": weekend_page_id}]}}}
             )
             print(f"      ✅ Erstellt:     {eintrag_title}")
         return True
